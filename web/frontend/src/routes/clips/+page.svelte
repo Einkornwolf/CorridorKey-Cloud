@@ -59,6 +59,18 @@
 			},
 			{ label: '---', action: () => {} },
 			{
+				label: `Delete All Clips (${project.clip_count})`,
+				danger: true,
+				disabled: project.clip_count === 0,
+				action: async () => {
+					if (!confirm(`Delete all ${project.clip_count} clips in "${project.display_name}"? This cannot be undone.`)) return;
+					for (const name of clipNames) {
+						try { await api.clips.delete(name); } catch { /* continue */ }
+					}
+					await loadProjects();
+				},
+			},
+			{
 				label: 'Delete Project',
 				danger: true,
 				action: () => deleteProject(project.name, project.display_name),

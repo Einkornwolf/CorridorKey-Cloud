@@ -6,7 +6,7 @@
 	import type { Clip, InferenceParams, OutputConfig } from '$lib/api';
 	import { defaultParams, defaultOutputConfig } from '$lib/stores/settings';
 	import { refreshJobs } from '$lib/stores/jobs';
-	import { refreshClips } from '$lib/stores/clips';
+	import { refreshClips, clips } from '$lib/stores/clips';
 	import { toast } from '$lib/stores/toasts';
 	import FrameViewer from '../../../components/FrameViewer.svelte';
 	import InferenceForm from '../../../components/InferenceForm.svelte';
@@ -168,6 +168,18 @@
 	}
 
 	onMount(loadClip);
+
+	// Auto-refresh when the clips store updates (e.g. job completes via WebSocket)
+	$effect(() => {
+		// Subscribe to clips store — when it changes, re-fetch this clip's data
+		const allClips = $clips;
+		if (allClips.length > 0 && !loading) {
+			const updated = allClips.find((c) => c.name === clipName);
+			if (updated && clip && updated.state !== clip.state) {
+				loadClip();
+			}
+		}
+	});
 </script>
 
 <svelte:head>
