@@ -189,7 +189,9 @@
 	}
 
 	function onPanStart(e: PointerEvent) {
-		if (mode === 'compare' && compareMode === 'wipe') return; // wipe uses its own drag
+		// Let wipe handle capture its own events
+		const target = e.target as HTMLElement;
+		if (target.closest('.wipe-divider')) return;
 		if (!isZoomed) return;
 		isPanning = true;
 		panStartX = e.clientX;
@@ -526,6 +528,8 @@
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
+		transform: var(--zoom-transform, none);
+		transform-origin: 0 0;
 	}
 
 	.compare-label {
@@ -563,6 +567,8 @@
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
+		transform: var(--zoom-transform, none);
+		transform-origin: 0 0;
 	}
 
 	.wipe-a {
