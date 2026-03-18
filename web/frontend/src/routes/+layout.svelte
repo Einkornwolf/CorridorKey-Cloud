@@ -12,7 +12,7 @@
 	import KeyboardHelp from '../components/KeyboardHelp.svelte';
 	import { toast } from '$lib/stores/toasts';
 	import { goto } from '$app/navigation';
-	import { logout, getStoredUser } from '$lib/auth';
+	import { logout, getStoredUser, initAuth } from '$lib/auth';
 
 	let { children } = $props();
 	let authChecked = $state(false);
@@ -63,12 +63,12 @@
 			authChecked = true;
 		}
 
-		// Check auth status from the server
+		// Check auth status and persist GoTrue URL (CRKY-63)
 		try {
-			const status = await fetch('/api/auth/status').then((r) => r.json());
-			authEnabled = status.auth_enabled;
+			const { enabled } = await initAuth();
+			authEnabled = enabled;
 
-			if (status.auth_enabled) {
+			if (enabled) {
 				if (!hasToken && !isPublic) {
 					// No token on an app page — redirect to login
 					window.location.href = '/login';

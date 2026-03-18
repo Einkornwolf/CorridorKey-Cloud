@@ -1,12 +1,14 @@
 /** GoTrue auth client — handles login, signup, token storage, and refresh.
  *
  * Communicates directly with the GoTrue API (Supabase Auth).
- * Stores tokens in localStorage for persistence across page refreshes.
+ * Stores tokens and GoTrue URL in localStorage for persistence across
+ * page refreshes (CRKY-63).
  */
 
 const TOKEN_KEY = 'ck:auth_token';
 const REFRESH_KEY = 'ck:refresh_token';
 const USER_KEY = 'ck:auth_user';
+const GOTRUE_URL_KEY = 'ck:gotrue_url';
 
 export interface AuthUser {
 	id: string;
@@ -22,23 +24,26 @@ export interface AuthSession {
 	user: AuthUser;
 }
 
-let gotrueUrl = '';
+/** Get the GoTrue URL, reading from localStorage or falling back to default. */
+function getGotrueUrl(): string {
+	return localStorage.getItem(GOTRUE_URL_KEY) || 'http://localhost:54324';
+}
 
-/** Initialize auth with the GoTrue URL. Call once on app startup. */
+/** Initialize auth with the GoTrue URL. Persists to localStorage. */
 export async function initAuth(): Promise<{ enabled: boolean; gotrueUrl: string }> {
 	const res = await fetch('/api/auth/status');
 	const data = await res.json();
-	if (data.auth_enabled && data.supabase_url) {
-		// GoTrue is at the Supabase URL's auth endpoint
-		// In dev, GoTrue is directly accessible; in prod it goes through the proxy
-		gotrueUrl = data.gotrue_url || 'http://localhost:54324';
+	if (data.auth_enabled && data.gotrue_url) {
+		localStorage.setItem(GOTRUE_URL_KEY, data.gotrue_url);
 	}
-	return { enabled: data.auth_enabled, gotrueUrl };
+	return { enabled: data.auth_enabled, gotrueUrl: data.gotrue_url || getGotrueUrl() };
 }
 
 /** Login with email/password. Returns session or throws. */
 export async function login(email: string, password: string): Promise<AuthSession> {
-	const url = gotrueUrl || 'http://localhost:54324';
+	// Ensure we have the latest GoTrue URL before login
+	await initAuth();
+	const url = getGotrueUrl();
 	const res = await fetch(`${url}/token?grant_type=password`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -58,7 +63,7 @@ export async function login(email: string, password: string): Promise<AuthSessio
 
 /** Signup with email/password. Returns session or throws. */
 export async function signup(email: string, password: string): Promise<AuthSession> {
-	const url = gotrueUrl || 'http://localhost:54324';
+	const url = getGotrueUrl();
 	const res = await fetch(`${url}/signup`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -81,7 +86,7 @@ export async function refreshToken(): Promise<AuthSession | null> {
 	const refresh = localStorage.getItem(REFRESH_KEY);
 	if (!refresh) return null;
 
-	const url = gotrueUrl || 'http://localhost:54324';
+	const url = getGotrueUrl();
 	try {
 		const res = await fetch(`${url}/token?grant_type=refresh_token`, {
 			method: 'POST',
@@ -136,7 +141,7 @@ export function getStoredUser(): AuthUser | null {
 	}
 }
 
-/** Logout — clear stored tokens. */
+/** Logout — clear stored tokens and GoTrue URL. */
 export function logout(): void {
 	clearSession();
 }
