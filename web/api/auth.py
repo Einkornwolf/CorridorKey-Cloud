@@ -170,12 +170,26 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Supabase JWTs contain: sub (user_id), email, role, app_metadata, user_metadata
         app_metadata = claims.get("app_metadata", {})
 
+        user_id = claims.get("sub", "")
+        email = claims.get("email", "")
+
         request.state.user = UserContext(
-            user_id=claims.get("sub", ""),
-            email=claims.get("email", ""),
+            user_id=user_id,
+            email=email,
             tier=app_metadata.get("tier", "pending"),
             org_ids=app_metadata.get("org_ids", []),
             raw_claims=claims,
         )
+
+        # Link email-based signup record to real UUID on first auth (CRKY-61)
+        if user_id and email:
+            try:
+                from .users import get_user_store
+
+                store = get_user_store()
+                if store.get_user(email) and not store.get_user(user_id):
+                    store.link_uuid(email, user_id)
+            except Exception:
+                pass  # Non-critical — don't block the request
 
         return await call_next(request)

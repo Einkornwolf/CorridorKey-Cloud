@@ -92,6 +92,47 @@ class TestUserStore:
         assert not user_store.delete_user("ghost")
 
 
+class TestUUIDLinking:
+    """Tests for the email→UUID re-keying (CRKY-61)."""
+
+    def test_link_uuid(self, user_store):
+        user_store.record_signup("alice@test.com", "alice@test.com")
+        result = user_store.link_uuid("alice@test.com", "uuid-123")
+        assert result is not None
+        assert result.user_id == "uuid-123"
+        assert result.email == "alice@test.com"
+        # Old key gone, new key works
+        assert user_store.get_user("alice@test.com") is None
+        assert user_store.get_user("uuid-123") is not None
+
+    def test_link_uuid_already_linked(self, user_store):
+        user_store.record_signup("alice@test.com", "alice@test.com")
+        user_store.link_uuid("alice@test.com", "uuid-123")
+        # Second call is idempotent
+        result = user_store.link_uuid("alice@test.com", "uuid-123")
+        assert result is not None
+        assert result.user_id == "uuid-123"
+
+    def test_link_uuid_not_found(self, user_store):
+        assert user_store.link_uuid("ghost@test.com", "uuid-456") is None
+
+    def test_get_user_by_email(self, user_store):
+        user_store.record_signup("alice@test.com", "alice@test.com")
+        user = user_store.get_user_by_email("alice@test.com")
+        assert user is not None
+        assert user.email == "alice@test.com"
+
+    def test_get_user_by_email_after_link(self, user_store):
+        user_store.record_signup("alice@test.com", "alice@test.com")
+        user_store.link_uuid("alice@test.com", "uuid-123")
+        user = user_store.get_user_by_email("alice@test.com")
+        assert user is not None
+        assert user.user_id == "uuid-123"
+
+    def test_get_user_by_email_not_found(self, user_store):
+        assert user_store.get_user_by_email("nope@test.com") is None
+
+
 class TestApprovalWorkflow:
     """Integration-style tests for the approval workflow."""
 

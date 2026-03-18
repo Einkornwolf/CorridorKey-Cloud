@@ -86,6 +86,35 @@ class UserStore:
         data = users.get(user_id)
         return UserRecord(**data) if data else None
 
+    def get_user_by_email(self, email: str) -> UserRecord | None:
+        """Look up a user by email (searches all records)."""
+        users = self._load_users()
+        for data in users.values():
+            if data.get("email") == email:
+                return UserRecord(**data)
+        return None
+
+    def link_uuid(self, email: str, real_uuid: str) -> UserRecord | None:
+        """Replace the email-based key with the real Supabase UUID.
+
+        Called on first authenticated request to fix the signup-time
+        mismatch where user_id was set to email (CRKY-61).
+        """
+        users = self._load_users()
+        # Already linked?
+        if real_uuid in users:
+            return UserRecord(**users[real_uuid])
+        # Find by email key
+        email_record = users.get(email)
+        if not email_record:
+            return None
+        # Re-key: remove email entry, add UUID entry
+        del users[email]
+        email_record["user_id"] = real_uuid
+        users[real_uuid] = email_record
+        self._save_users(users)
+        return UserRecord(**email_record)
+
     def list_users(self, tier_filter: str | None = None) -> list[UserRecord]:
         """List all users, optionally filtered by tier."""
         users = self._load_users()
