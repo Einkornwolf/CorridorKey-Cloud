@@ -8,14 +8,15 @@ The active backend is selected by CK_AUTH_ENABLED. When auth is disabled,
 the JSON backend is used. When auth is enabled and Supabase is configured,
 Postgres is used.
 
-Schema (Postgres):
-- ck_settings: key-value store for server settings
-- ck_invite_tokens: invite tokens for signup
-- ck_gpu_credits: per-user GPU time tracking
-- ck_audit_log: audit trail (Phase 4)
+Schema (Postgres, in 'ck' schema):
+- ck.settings: key-value store for server settings
+- ck.invite_tokens: invite tokens for signup
+- ck.job_history: completed job records
+- ck.gpu_credits: per-user GPU time tracking
 
+Tables are created by deploy/init-db.sql on first container start.
+The app falls back to creating the ck schema at runtime if needed.
 Note: auth.users is managed by Supabase GoTrue, not by us.
-Org-related tables (ck_orgs, ck_org_members) are Phase 3.
 """
 
 from __future__ import annotations
@@ -105,7 +106,7 @@ class PostgresBackend(StorageBackend):
             try:
                 import psycopg2
 
-                self._conn = psycopg2.connect(self._url)
+                self._conn = psycopg2.connect(self._url, options="-c search_path=ck,public")
                 self._conn.autocommit = True
             except ImportError:
                 logger.error("psycopg2 not installed. Install with: pip install psycopg2-binary")
@@ -113,43 +114,64 @@ class PostgresBackend(StorageBackend):
         return self._conn
 
     def _init_tables(self):
-        """Create tables if they don't exist."""
+        """Verify the ck schema and tables exist.
+
+        Tables are created by deploy/init-db.sql (runs on first container
+        start via docker-entrypoint-initdb.d). For existing volumes, run:
+            cat deploy/init-db.sql | docker exec -i <db-container> \\
+                psql -U supabase_admin -d corridorkey
+
+        If the ck schema exists, uses it. Otherwise tries to create tables
+        directly (works on non-Supabase Postgres where the user has CREATE).
+        """
+        conn = self._get_conn()
+        cur = conn.cursor()
         try:
-            conn = self._get_conn()
-            cur = conn.cursor()
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS ck_settings (
-                    key TEXT PRIMARY KEY,
-                    value JSONB NOT NULL,
-                    updated_at TIMESTAMPTZ DEFAULT NOW()
-                );
-                CREATE TABLE IF NOT EXISTS ck_invite_tokens (
-                    token TEXT PRIMARY KEY,
-                    data JSONB NOT NULL,
-                    created_at TIMESTAMPTZ DEFAULT NOW()
-                );
-                CREATE TABLE IF NOT EXISTS ck_job_history (
-                    id SERIAL PRIMARY KEY,
-                    data JSONB NOT NULL,
-                    created_at TIMESTAMPTZ DEFAULT NOW()
-                );
-                CREATE TABLE IF NOT EXISTS ck_gpu_credits (
-                    user_id TEXT PRIMARY KEY,
-                    contributed_seconds FLOAT DEFAULT 0,
-                    consumed_seconds FLOAT DEFAULT 0,
-                    updated_at TIMESTAMPTZ DEFAULT NOW()
-                );
-            """)
+            # Check if ck schema exists
+            cur.execute("SELECT schema_name FROM information_schema.schemata WHERE schema_name = 'ck'")
+            if cur.fetchone():
+                logger.info("Using Postgres ck schema")
+            else:
+                # Try creating schema + tables (works on standard Postgres,
+                # may fail on Supabase if init-db.sql hasn't been run)
+                logger.info("ck schema not found — attempting to create")
+                try:
+                    cur.execute("CREATE SCHEMA IF NOT EXISTS ck")
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS ck.settings (
+                            key TEXT PRIMARY KEY, value JSONB NOT NULL,
+                            updated_at TIMESTAMPTZ DEFAULT NOW());
+                        CREATE TABLE IF NOT EXISTS ck.invite_tokens (
+                            token TEXT PRIMARY KEY, data JSONB NOT NULL,
+                            created_at TIMESTAMPTZ DEFAULT NOW());
+                        CREATE TABLE IF NOT EXISTS ck.job_history (
+                            id SERIAL PRIMARY KEY, data JSONB NOT NULL,
+                            created_at TIMESTAMPTZ DEFAULT NOW());
+                        CREATE TABLE IF NOT EXISTS ck.gpu_credits (
+                            user_id TEXT PRIMARY KEY,
+                            contributed_seconds FLOAT DEFAULT 0,
+                            consumed_seconds FLOAT DEFAULT 0,
+                            updated_at TIMESTAMPTZ DEFAULT NOW());
+                    """)
+                    logger.info("Created ck schema and tables")
+                except Exception as schema_err:
+                    raise RuntimeError(
+                        f"Cannot create ck schema ({schema_err}). "
+                        "Run deploy/init-db.sql as supabase_admin — see the error above."
+                    ) from schema_err
             cur.close()
-            logger.info("Postgres tables initialized")
+        except RuntimeError:
+            cur.close()
+            raise
         except Exception as e:
-            logger.warning(f"Postgres init failed (will fall back to JSON): {e}")
+            cur.close()
+            raise RuntimeError(f"Postgres initialization failed: {e}") from e
 
     def get_setting(self, key: str, default: Any = None) -> Any:
         try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT value FROM ck_settings WHERE key = %s", (key,))
+            cur.execute("SELECT value FROM settings WHERE key = %s", (key,))
             row = cur.fetchone()
             cur.close()
             return row[0] if row else default
@@ -161,7 +183,7 @@ class PostgresBackend(StorageBackend):
             conn = self._get_conn()
             cur = conn.cursor()
             cur.execute(
-                """INSERT INTO ck_settings (key, value, updated_at) VALUES (%s, %s, NOW())
+                """INSERT INTO settings (key, value, updated_at) VALUES (%s, %s, NOW())
                    ON CONFLICT (key) DO UPDATE SET value = %s, updated_at = NOW()""",
                 (key, json.dumps(value), json.dumps(value)),
             )
@@ -173,7 +195,7 @@ class PostgresBackend(StorageBackend):
         try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT key, value FROM ck_settings")
+            cur.execute("SELECT key, value FROM settings")
             result = {row[0]: row[1] for row in cur.fetchall()}
             cur.close()
             return result
@@ -184,7 +206,7 @@ class PostgresBackend(StorageBackend):
         try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT token, data FROM ck_invite_tokens")
+            cur.execute("SELECT token, data FROM invite_tokens")
             result = {row[0]: row[1] for row in cur.fetchall()}
             cur.close()
             return result
@@ -196,7 +218,7 @@ class PostgresBackend(StorageBackend):
             conn = self._get_conn()
             cur = conn.cursor()
             cur.execute(
-                """INSERT INTO ck_invite_tokens (token, data) VALUES (%s, %s)
+                """INSERT INTO invite_tokens (token, data) VALUES (%s, %s)
                    ON CONFLICT (token) DO UPDATE SET data = %s""",
                 (token, json.dumps(data), json.dumps(data)),
             )
@@ -208,10 +230,10 @@ class PostgresBackend(StorageBackend):
         try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("DELETE FROM ck_job_history")
+            cur.execute("DELETE FROM job_history")
             if history:
                 cur.execute(
-                    "INSERT INTO ck_job_history (data) VALUES (%s)",
+                    "INSERT INTO job_history (data) VALUES (%s)",
                     (json.dumps(history[-200:]),),
                 )
             cur.close()
@@ -222,7 +244,7 @@ class PostgresBackend(StorageBackend):
         try:
             conn = self._get_conn()
             cur = conn.cursor()
-            cur.execute("SELECT data FROM ck_job_history ORDER BY id DESC LIMIT 1")
+            cur.execute("SELECT data FROM job_history ORDER BY id DESC LIMIT 1")
             row = cur.fetchone()
             cur.close()
             return row[0] if row else []
