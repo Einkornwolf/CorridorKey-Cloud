@@ -48,29 +48,46 @@
 
 	function handleLogout() {
 		logout();
-		goto('/login');
+		window.location.href = '/login';
 	}
 
 	onMount(async () => {
-		// Check if auth is enabled and redirect to login if needed
 		const currentPath = page.url.pathname;
-		if (!publicPaths.some((p) => currentPath.startsWith(p))) {
-			try {
-				const status = await fetch('/api/auth/status').then((r) => r.json());
-				authEnabled = status.auth_enabled;
-				if (status.auth_enabled) {
-					const token = localStorage.getItem('ck:auth_token');
-					if (!token) {
-						goto('/login');
-						authChecked = true;
-						return;
-					}
-				}
-			} catch {
-				// Auth endpoint not available — assume auth disabled
-			}
+		const isPublic = publicPaths.some((p) => currentPath.startsWith(p));
+		const hasToken = !!localStorage.getItem('ck:auth_token');
+
+		// Quick path: if we have a token and we're on app pages, show the shell
+		// immediately without waiting for the auth status check. The API interceptor
+		// handles 401s if the token turns out to be invalid.
+		if (hasToken && !isPublic) {
+			authChecked = true;
 		}
+
+		// Check auth status from the server
+		try {
+			const status = await fetch('/api/auth/status').then((r) => r.json());
+			authEnabled = status.auth_enabled;
+
+			if (status.auth_enabled) {
+				if (!hasToken && !isPublic) {
+					// No token on an app page — redirect to login
+					window.location.href = '/login';
+					return;
+				}
+				if (hasToken && isPublic && currentPath !== '/pending') {
+					// Already logged in but on login/signup — redirect to app
+					goto('/clips');
+					return;
+				}
+			}
+		} catch {
+			// Auth endpoint not available — assume auth disabled
+		}
+
 		authChecked = true;
+
+		// Only connect and refresh stores on app pages, not login/signup/pending
+		if (isPublic) return;
 
 		// Request notification permission
 		if (typeof Notification !== 'undefined' && Notification.permission === 'default') {

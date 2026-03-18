@@ -13,11 +13,16 @@ async function attachAuth(headers: Record<string, string>): Promise<void> {
 }
 
 /** Handle 401: try one token refresh + retry, otherwise redirect to login. */
+let _redirecting = false;
 async function handle401(method: string, path: string, opts: RequestInit): Promise<Response | null> {
 	const session = await refreshToken();
 	if (!session) {
 		logout();
-		window.location.href = '/login';
+		// Only redirect once — prevent loop from multiple concurrent 401s
+		if (!_redirecting && !window.location.pathname.startsWith('/login')) {
+			_redirecting = true;
+			window.location.href = '/login';
+		}
 		return null;
 	}
 	// Retry with new token
