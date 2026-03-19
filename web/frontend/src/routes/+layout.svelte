@@ -6,7 +6,7 @@
 	import { refreshClips } from '$lib/stores/clips';
 	import { refreshJobs, updateJobFromWS, currentJob, runningJobs, activeJobCount } from '$lib/stores/jobs';
 	import { refreshDevice, refreshVRAM, device, vram, wsConnected } from '$lib/stores/system';
-	import { refreshNodes, updateNodeFromWS, removeNodeFromWS, nodes } from '$lib/stores/nodes';
+	import { refreshNodes, nodes } from '$lib/stores/nodes';
 	import VramMeter from '../components/VramMeter.svelte';
 	import ToastContainer from '../components/ToastContainer.svelte';
 	import KeyboardHelp from '../components/KeyboardHelp.svelte';
@@ -135,10 +135,10 @@
 				vram.set({ ...d, available: true });
 			} else if (msg.type === 'clip:state_changed') {
 				refreshClips();
-			} else if (msg.type === 'node:update') {
-				updateNodeFromWS(msg.data as import('$lib/stores/nodes').NodeInfo);
-			} else if (msg.type === 'node:offline') {
-				removeNodeFromWS((msg.data as { node_id: string }).node_id);
+			} else if (msg.type === 'node:update' || msg.type === 'node:offline') {
+				// Re-fetch from /api/farm which applies org filtering,
+				// instead of blindly pushing unfiltered WS data into the store
+				refreshNodes();
 			}
 		});
 
