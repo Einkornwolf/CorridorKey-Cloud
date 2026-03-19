@@ -25,7 +25,7 @@
 	const TIERS = ['pending', 'member', 'contributor', 'org_admin', 'platform_admin'];
 
 	let authorized = $state(false);
-	let activeTab = $state<'users' | 'orgs'>('users');
+	let activeTab = $state<'users' | 'orgs' | 'credits' | 'stats'>('users');
 	let users = $state<UserRecord[]>([]);
 	let pendingUsers = $state<UserRecord[]>([]);
 	let orgs = $state<OrgRecord[]>([]);
@@ -34,6 +34,19 @@
 	let inviteUrl = $state('');
 	let inviteGenerating = $state(false);
 	let invites = $state<{ token: string; created_at: number; used: boolean; used_by: string | null }[]>([]);
+
+	// Credits
+	let allCredits = $state<{ org_id: string; org_name: string; contributed_hours: number; consumed_hours: number; balance_seconds: number }[]>([]);
+	let grantOrgId = $state('');
+	let grantHours = $state(1);
+	let granting = $state(false);
+
+	// Stats
+	let stats = $state<any>(null);
+
+	// User activity detail
+	let selectedUserActivity = $state<any>(null);
+	let activityLoading = $state(false);
 
 	async function adminFetch(path: string, opts?: RequestInit) {
 		const token = localStorage.getItem('ck:auth_token');
@@ -81,6 +94,42 @@
 		} catch {
 			invites = [];
 		}
+	}
+
+	async function loadCredits() {
+		try {
+			const res = await adminFetch('/api/admin/credits');
+			allCredits = res.credits;
+		} catch { allCredits = []; }
+	}
+
+	async function loadStats() {
+		try {
+			stats = await adminFetch('/api/admin/stats');
+		} catch { stats = null; }
+	}
+
+	async function grantCredits() {
+		if (!grantOrgId || grantHours <= 0) return;
+		granting = true;
+		try {
+			await adminFetch('/api/admin/credits/grant', {
+				method: 'POST',
+				body: JSON.stringify({ org_id: grantOrgId, hours: grantHours })
+			});
+			await loadCredits();
+			grantHours = 1;
+		} catch { /* ignore */ }
+		finally { granting = false; }
+	}
+
+	async function viewUserActivity(userId: string) {
+		activityLoading = true;
+		selectedUserActivity = null;
+		try {
+			selectedUserActivity = await adminFetch(`/api/admin/users/${encodeURIComponent(userId)}/activity`);
+		} catch { /* ignore */ }
+		finally { activityLoading = false; }
 	}
 
 	async function loadOrgs() {
@@ -137,7 +186,7 @@
 		}
 		authorized = true;
 		try {
-			await Promise.all([loadUsers(), loadOrgs(), loadInvites()]);
+			await Promise.all([loadUsers(), loadOrgs(), loadInvites(), loadCredits(), loadStats()]);
 		} finally {
 			loading = false;
 		}
@@ -175,6 +224,16 @@
 					class:active={activeTab === 'orgs'}
 					onclick={() => activeTab = 'orgs'}
 				>ORGS</button>
+				<button
+					class="tab-btn mono"
+					class:active={activeTab === 'credits'}
+					onclick={() => activeTab = 'credits'}
+				>CREDITS</button>
+				<button
+					class="tab-btn mono"
+					class:active={activeTab === 'stats'}
+					onclick={() => activeTab = 'stats'}
+				>STATS</button>
 			</div>
 		</div>
 
@@ -347,6 +406,153 @@
 					</table>
 				</div>
 			</div>
+		{:else if activeTab === 'credits'}
+			<!-- GPU Credits -->
+			<div class="section">
+				<h2 class="section-title mono">GRANT CREDITS</h2>
+				<div class="grant-row">
+					<select class="tier-select mono" bind:value={grantOrgId}>
+						<option value="">Select org...</option>
+						{#each orgs as org}
+							<option value={org.org_id}>{org.name}</option>
+						{/each}
+					</select>
+					<input type="number" class="grant-input mono" bind:value={grantHours} min="0.1" step="0.5" />
+					<span class="grant-unit mono">hours</span>
+					<button class="btn btn-approve mono" onclick={grantCredits} disabled={granting || !grantOrgId}>
+						{granting ? '...' : 'GRANT'}
+					</button>
+				</div>
+			</div>
+
+			<div class="section">
+				<h2 class="section-title mono">ALL ORG CREDITS</h2>
+				<div class="table-wrap">
+					<table class="data-table">
+						<thead>
+							<tr>
+								<th class="mono">ORG</th>
+								<th class="mono">CONTRIBUTED</th>
+								<th class="mono">CONSUMED</th>
+								<th class="mono">BALANCE</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each allCredits as c}
+								<tr>
+									<td>{c.org_name || c.org_id.substring(0, 12)}</td>
+									<td class="mono">{c.contributed_hours}h</td>
+									<td class="mono">{c.consumed_hours}h</td>
+									<td class="mono" class:positive-text={c.balance_seconds >= 0} class:negative-text={c.balance_seconds < 0}>
+										{c.balance_seconds >= 0 ? '+' : ''}{(c.balance_seconds / 3600).toFixed(2)}h
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</div>
+
+		{:else if activeTab === 'stats'}
+			<!-- Platform Stats -->
+			{#if stats}
+				<div class="stats-grid">
+					<div class="stat-box">
+						<span class="stat-value mono">{stats.users.total}</span>
+						<span class="stat-label mono">USERS</span>
+						<div class="stat-detail mono">
+							{#each Object.entries(stats.users.by_tier) as [tier, count]}
+								<span class="stat-tier">{tier}: {count}</span>
+							{/each}
+						</div>
+					</div>
+					<div class="stat-box">
+						<span class="stat-value mono">{stats.orgs.total}</span>
+						<span class="stat-label mono">ORGS</span>
+						<span class="stat-detail mono">{stats.orgs.personal} personal, {stats.orgs.team} team</span>
+					</div>
+					<div class="stat-box">
+						<span class="stat-value mono">{stats.gpu.total_contributed_hours}h</span>
+						<span class="stat-label mono">GPU CONTRIBUTED</span>
+						<span class="stat-detail mono">{stats.gpu.total_consumed_hours}h consumed</span>
+					</div>
+					<div class="stat-box">
+						<span class="stat-value mono">{stats.nodes.online}/{stats.nodes.total}</span>
+						<span class="stat-label mono">NODES ONLINE</span>
+						<span class="stat-detail mono">{stats.nodes.busy} busy</span>
+					</div>
+					<div class="stat-box">
+						<span class="stat-value mono">{stats.jobs.running}</span>
+						<span class="stat-label mono">JOBS RUNNING</span>
+						<span class="stat-detail mono">{stats.jobs.queued} queued, {stats.jobs.history} history</span>
+					</div>
+				</div>
+
+				<!-- User Activity -->
+				<div class="section">
+					<h2 class="section-title mono">USER ACTIVITY</h2>
+					<div class="table-wrap">
+						<table class="data-table">
+							<thead>
+								<tr>
+									<th class="mono">EMAIL</th>
+									<th class="mono">TIER</th>
+									<th class="mono">ORGS</th>
+									<th class="mono">ACTIONS</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each users as u (u.user_id)}
+									<tr>
+										<td>{u.email}</td>
+										<td><span class="tier-badge mono" data-tier={u.tier}>{u.tier}</span></td>
+										<td class="mono org-cell">
+											{#each (u.orgs ?? []) as o}
+												<span class="org-chip">{o.name}</span>
+											{/each}
+										</td>
+										<td>
+											<button class="btn btn-subtle-sm mono" onclick={() => viewUserActivity(u.user_id)}>VIEW</button>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</div>
+
+				<!-- Activity detail modal -->
+				{#if selectedUserActivity}
+					<div class="activity-panel">
+						<div class="activity-header">
+							<h3 class="mono">{selectedUserActivity.user.email}</h3>
+							<button class="btn-icon-close" onclick={() => selectedUserActivity = null}>&times;</button>
+						</div>
+						<div class="activity-grid">
+							<div class="activity-stat">
+								<span class="activity-label mono">CONTRIBUTED</span>
+								<span class="activity-value mono">{selectedUserActivity.totals.contributed_hours}h</span>
+							</div>
+							<div class="activity-stat">
+								<span class="activity-label mono">CONSUMED</span>
+								<span class="activity-value mono">{selectedUserActivity.totals.consumed_hours}h</span>
+							</div>
+							<div class="activity-stat">
+								<span class="activity-label mono">JOBS</span>
+								<span class="activity-value mono">{selectedUserActivity.jobs.total} ({selectedUserActivity.jobs.completed} done, {selectedUserActivity.jobs.failed} failed)</span>
+							</div>
+							<div class="activity-stat">
+								<span class="activity-label mono">ORGS</span>
+								<span class="activity-value mono">
+									{#each selectedUserActivity.orgs as o}
+										{o.name} ({o.role}){' '}
+									{/each}
+								</span>
+							</div>
+						</div>
+					</div>
+				{/if}
+			{/if}
 		{/if}
 	{/if}
 </div>
@@ -603,6 +809,34 @@
 		background: var(--surface-4); color: var(--text-secondary);
 	}
 	.no-org { color: var(--text-tertiary); }
+
+	.grant-row { display: flex; gap: var(--sp-2); align-items: center; }
+	.grant-input { width: 80px; padding: 6px 10px; background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 13px; outline: none; text-align: center; }
+	.grant-input:focus { border-color: var(--accent); }
+	.grant-unit { font-size: 12px; color: var(--text-tertiary); }
+
+	.positive-text { color: var(--state-complete); }
+	.negative-text { color: var(--state-error); }
+
+	.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--sp-3); margin-bottom: var(--sp-5); }
+	.stat-box { display: flex; flex-direction: column; gap: var(--sp-1); padding: var(--sp-4); background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); }
+	.stat-value { font-size: 24px; font-weight: 700; color: var(--accent); }
+	.stat-label { font-size: 10px; letter-spacing: 0.1em; color: var(--text-tertiary); }
+	.stat-detail { font-size: 11px; color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+	.stat-tier { font-size: 10px; padding: 1px 5px; background: var(--surface-3); border-radius: 3px; }
+
+	.btn-subtle-sm { font-size: 10px; letter-spacing: 0.06em; padding: 3px 8px; background: none; border: 1px solid var(--border); border-radius: 3px; color: var(--text-tertiary); cursor: pointer; }
+	.btn-subtle-sm:hover { color: var(--accent); border-color: var(--accent); }
+
+	.activity-panel { margin-top: var(--sp-4); padding: var(--sp-4); background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); }
+	.activity-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-3); }
+	.activity-header h3 { font-size: 13px; color: var(--accent); }
+	.btn-icon-close { background: none; border: none; color: var(--text-tertiary); font-size: 18px; cursor: pointer; }
+	.btn-icon-close:hover { color: var(--text-primary); }
+	.activity-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+	.activity-stat { display: flex; flex-direction: column; gap: 2px; }
+	.activity-label { font-size: 10px; letter-spacing: 0.08em; color: var(--text-tertiary); }
+	.activity-value { font-size: 13px; color: var(--text-primary); }
 
 	.form-error {
 		padding: var(--sp-2) var(--sp-3);

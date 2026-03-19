@@ -148,6 +148,157 @@ def list_all_orgs():
     return {"orgs": result}
 
 
+# --- GPU Credits (admin) ---
+
+
+class GrantCreditsRequest(BaseModel):
+    org_id: str
+    hours: float
+
+
+@router.post("/credits/grant")
+def grant_credits(req: GrantCreditsRequest, request: Request):
+    """Grant GPU credit hours to an org. Platform admin only."""
+    from ..gpu_credits import add_contributed
+
+    if req.hours <= 0:
+        raise HTTPException(status_code=400, detail="Hours must be positive")
+    org_store = get_org_store()
+    org = org_store.get_org(req.org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Org not found")
+
+    seconds = req.hours * 3600
+    add_contributed(req.org_id, seconds)
+
+    audit_from_request("credits.granted", request, target_type="org", target_id=req.org_id,
+                       details={"hours": req.hours, "seconds": seconds})
+
+    from ..gpu_credits import get_org_credits
+
+    return get_org_credits(req.org_id).to_dict()
+
+
+@router.get("/credits")
+def list_all_credits():
+    """Get GPU credit balances for all orgs. Platform admin only."""
+    from ..gpu_credits import get_all_credits
+
+    org_store = get_org_store()
+    credits = get_all_credits()
+    result = []
+    for c in credits:
+        org = org_store.get_org(c.org_id)
+        data = c.to_dict()
+        data["org_name"] = org.name if org else ""
+        result.append(data)
+    return {"credits": result}
+
+
+# --- Usage stats (admin dashboard) ---
+
+
+@router.get("/stats")
+def get_platform_stats():
+    """Platform-wide usage statistics. Platform admin only."""
+    user_store = get_user_store()
+    org_store = get_org_store()
+
+    all_users = user_store.list_users()
+    all_orgs = org_store.list_orgs()
+
+    from ..deps import get_queue
+    from ..gpu_credits import get_all_credits
+    from ..nodes import registry
+
+    all_credits = get_all_credits()
+    total_contributed = sum(c.contributed_seconds for c in all_credits)
+    total_consumed = sum(c.consumed_seconds for c in all_credits)
+
+    queue = get_queue()
+    nodes = registry.list_nodes()
+
+    return {
+        "users": {
+            "total": len(all_users),
+            "by_tier": {
+                tier: len([u for u in all_users if u.tier == tier])
+                for tier in ["pending", "member", "contributor", "org_admin", "platform_admin", "rejected"]
+                if any(u.tier == tier for u in all_users)
+            },
+        },
+        "orgs": {
+            "total": len(all_orgs),
+            "personal": len([o for o in all_orgs if o.personal]),
+            "team": len([o for o in all_orgs if not o.personal]),
+        },
+        "gpu": {
+            "total_contributed_hours": round(total_contributed / 3600, 2),
+            "total_consumed_hours": round(total_consumed / 3600, 2),
+            "balance_hours": round((total_contributed - total_consumed) / 3600, 2),
+        },
+        "jobs": {
+            "running": len(queue.running_jobs),
+            "queued": len(queue.queue_snapshot),
+            "history": len(queue.history_snapshot),
+        },
+        "nodes": {
+            "total": len(nodes),
+            "online": len([n for n in nodes if n.status != "offline"]),
+            "busy": len([n for n in nodes if n.status == "busy"]),
+        },
+    }
+
+
+@router.get("/users/{user_id}/activity")
+def get_user_activity(user_id: str):
+    """Get activity summary for a specific user. Platform admin only."""
+    user_store = get_user_store()
+    user = user_store.get_user(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    org_store = get_org_store()
+    user_orgs = org_store.list_user_orgs(user_id)
+
+    from ..deps import get_queue
+    from ..gpu_credits import get_org_credits
+
+    # Aggregate credits across all user's orgs
+    total_contributed = 0.0
+    total_consumed = 0.0
+    org_credits = []
+    for org in user_orgs:
+        credits = get_org_credits(org.org_id)
+        total_contributed += credits.contributed_seconds
+        total_consumed += credits.consumed_seconds
+        org_credits.append({**credits.to_dict(), "org_name": org.name})
+
+    # Count user's jobs
+    queue = get_queue()
+    all_jobs = queue.running_jobs + list(queue.queue_snapshot) + list(queue.history_snapshot)
+    user_jobs = [j for j in all_jobs if j.submitted_by == user_id]
+
+    return {
+        "user": user.to_dict(),
+        "orgs": [
+            {"org_id": o.org_id, "name": o.name, "role": "owner" if o.owner_id == user_id else "member"}
+            for o in user_orgs
+        ],
+        "credits": org_credits,
+        "totals": {
+            "contributed_hours": round(total_contributed / 3600, 2),
+            "consumed_hours": round(total_consumed / 3600, 2),
+        },
+        "jobs": {
+            "total": len(user_jobs),
+            "completed": len([j for j in user_jobs if j.status.value == "completed"]),
+            "failed": len([j for j in user_jobs if j.status.value == "failed"]),
+            "running": len([j for j in user_jobs if j.status.value == "running"]),
+        },
+    }
+
+
 # --- Audit log ---
 
 
