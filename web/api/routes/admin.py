@@ -119,6 +119,15 @@ def set_user_tier(user_id: str, req: SetTierRequest, request: Request):
 
     old_tier = user.tier
     updated = user_store.set_tier(user_id, req.tier)
+
+    # Ensure personal org + starter credits when promoting from pending
+    if old_tier == "pending" and req.tier != "pending":
+        personal_org = get_org_store().ensure_personal_org(user_id, user.email)
+        from ..gpu_credits import STARTER_CREDITS, add_contributed
+
+        if STARTER_CREDITS > 0:
+            add_contributed(personal_org.org_id, STARTER_CREDITS)
+
     audit_from_request("user.tier_changed", request, target_type="user", target_id=user_id,
                        details={"old_tier": old_tier, "new_tier": req.tier})
     return {"status": "updated", "user": updated.to_dict() if updated else None}

@@ -204,18 +204,22 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 if not store.get_user(user_id):
                     tier = app_metadata.get("tier", "pending")
                     store.record_signup(user_id=user_id, email=email)
-                    # If they already have a tier from GoTrue, apply it locally
                     if tier != "pending":
                         store.set_tier(user_id, tier)
-                    # Create personal org and grant starter credits
-                    from .orgs import get_org_store
 
-                    personal_org = get_org_store().ensure_personal_org(user_id, email)
-                    from .gpu_credits import STARTER_CREDITS, add_contributed
+                # Ensure personal org exists (may be missing if approved via tier dropdown)
+                from .orgs import get_org_store
 
-                    if STARTER_CREDITS > 0 and tier != "pending":
-                        add_contributed(personal_org.org_id, STARTER_CREDITS)
-                    logger.info(f"Auto-registered user {email} (tier={tier})")
+                org_store = get_org_store()
+                if not org_store.get_personal_org(user_id):
+                    tier = app_metadata.get("tier", "pending")
+                    if tier != "pending":
+                        personal_org = org_store.ensure_personal_org(user_id, email)
+                        from .gpu_credits import STARTER_CREDITS, add_contributed
+
+                        if STARTER_CREDITS > 0:
+                            add_contributed(personal_org.org_id, STARTER_CREDITS)
+                        logger.info(f"Auto-created personal org for {email}")
             except Exception:
                 pass  # Non-critical — don't block the request
 
