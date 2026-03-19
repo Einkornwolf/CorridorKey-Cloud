@@ -82,7 +82,7 @@ def _job_to_schema(job: GPUJob) -> JobSchema:
     )
 
 
-@router.get("/estimate")
+@router.get("/estimate", summary="Estimate GPU cost")
 def estimate_job_cost(job_type: str = "inference", frame_count: int = 0, num_shards: int = 1):
     """Estimate GPU cost for a job based on historical data (CRKY-34).
 
@@ -141,8 +141,9 @@ def estimate_job_cost(job_type: str = "inference", frame_count: int = 0, num_sha
     }
 
 
-@router.get("", response_model=JobListResponse)
+@router.get("", response_model=JobListResponse, summary="List all jobs")
 def list_jobs(request: Request):
+    """Return running, queued, and completed jobs filtered by the user's org membership."""
     queue = get_queue()
     user = get_current_user(request)
 
@@ -172,8 +173,9 @@ def list_jobs(request: Request):
     )
 
 
-@router.post("/inference", response_model=list[JobSchema])
+@router.post("/inference", response_model=list[JobSchema], summary="Submit inference job")
 def submit_inference(req: InferenceJobRequest, request: Request):
+    """Submit CorridorKey inference for one or more clips. Requires alpha hints to be ready."""
     queue = get_queue()
     submitted = []
     for clip_name in req.clip_names:
@@ -342,8 +344,9 @@ def retry_shard_group(group_id: str):
     }
 
 
-@router.post("/gvm", response_model=list[JobSchema])
+@router.post("/gvm", response_model=list[JobSchema], summary="Submit GVM alpha generation")
 def submit_gvm(req: GVMJobRequest, request: Request):
+    """Generate alpha hints using Generative Video Matting for one or more clips."""
     queue = get_queue()
     submitted = []
     for clip_name in req.clip_names:
@@ -356,8 +359,9 @@ def submit_gvm(req: GVMJobRequest, request: Request):
     return submitted
 
 
-@router.post("/videomama", response_model=list[JobSchema])
+@router.post("/videomama", response_model=list[JobSchema], summary="Submit VideoMaMa alpha generation")
 def submit_videomama(req: VideoMaMaJobRequest, request: Request):
+    """Generate alpha hints using VideoMaMa mask-driven matting for one or more clips."""
     queue = get_queue()
     submitted = []
     for clip_name in req.clip_names:
@@ -438,8 +442,9 @@ def submit_pipeline(req: PipelineJobRequest, request: Request):
     return submitted
 
 
-@router.post("/extract", response_model=list[JobSchema])
+@router.post("/extract", response_model=list[JobSchema], summary="Submit frame extraction")
 def submit_extract(req: ExtractJobRequest, request: Request):
+    """Extract frames from video source files for one or more clips."""
     queue = get_queue()
     submitted = []
     for clip_name in req.clip_names:
@@ -463,8 +468,9 @@ def _check_job_ownership(job: GPUJob, request: Request) -> None:
         raise HTTPException(status_code=403, detail="You can only manage your own jobs")
 
 
-@router.delete("/{job_id}")
+@router.delete("/{job_id}", summary="Cancel a job")
 def cancel_job(job_id: str, request: Request):
+    """Cancel a running or queued job. Only the submitter or platform admin can cancel."""
     queue = get_queue()
     job = queue.find_job_by_id(job_id)
     if job is None:
@@ -520,8 +526,9 @@ def get_job_log(job_id: str):
     }
 
 
-@router.delete("")
+@router.delete("", summary="Cancel all jobs")
 def cancel_all():
+    """Cancel all running and queued jobs."""
     queue = get_queue()
     queue.cancel_all()
     return {"status": "all_cancelled"}

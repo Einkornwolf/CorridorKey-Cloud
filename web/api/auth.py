@@ -36,9 +36,22 @@ PUBLIC_PATHS = {
     "/api/auth/status",
     "/api/health",
     "/metrics",
-    "/docs",
-    "/openapi.json",
 }
+
+
+def _init_docs_paths() -> None:
+    """Add docs paths to PUBLIC_PATHS when CK_DOCS_PUBLIC is set (CRKY-32).
+
+    When public, FastAPI serves them directly (no auth needed).
+    When protected, docs_routes.py checks auth in the route handler itself.
+    """
+    from .openapi_config import DOCS_PUBLIC
+
+    if DOCS_PUBLIC:
+        PUBLIC_PATHS.update({"/docs", "/redoc", "/openapi.json"})
+
+
+_init_docs_paths()
 
 # Path prefixes that don't require authentication
 PUBLIC_PREFIXES = (
@@ -155,6 +168,27 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         # Skip auth for public paths
         if path in PUBLIC_PATHS or any(path.startswith(p) for p in PUBLIC_PREFIXES):
+            return await call_next(request)
+
+        # Protected docs routes handle their own auth checks (CRKY-32).
+        # Let the request through so the route handler can inspect request.state.user.
+        _DOCS_PATHS = {"/docs", "/redoc", "/openapi.json"}
+        if path in _DOCS_PATHS:
+            # Try to populate user context (best-effort) but don't block
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                try:
+                    claims = _decode_jwt(auth_header[7:])
+                    app_metadata = claims.get("app_metadata", {})
+                    request.state.user = UserContext(
+                        user_id=claims.get("sub", ""),
+                        email=claims.get("email", ""),
+                        tier=app_metadata.get("tier", "pending"),
+                        org_ids=app_metadata.get("org_ids", []),
+                        raw_claims=claims,
+                    )
+                except Exception:
+                    pass
             return await call_next(request)
 
         # Skip auth for SPA fallback (non-API, non-WS GET requests serve index.html)

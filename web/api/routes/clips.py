@@ -50,8 +50,9 @@ def _clip_to_schema(clip) -> ClipSchema:
     )
 
 
-@router.get("", response_model=ClipListResponse)
+@router.get("", response_model=ClipListResponse, summary="List all clips")
 def list_clips(request: Request):
+    """Scan the project directory and return all clips with their state, assets, and frame counts."""
     clips_dir = resolve_clips_dir(request)
     service = get_service()
     try:
@@ -65,8 +66,9 @@ def list_clips(request: Request):
     )
 
 
-@router.get("/{name}", response_model=ClipSchema)
+@router.get("/{name}", response_model=ClipSchema, summary="Get clip details")
 def get_clip(name: str, request: Request):
+    """Return detailed info for a single clip including assets, frame count, and output state."""
     clips_dir = resolve_clips_dir(request)
     service = get_service()
     try:

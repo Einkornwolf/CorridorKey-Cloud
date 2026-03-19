@@ -216,9 +216,17 @@ def create_app() -> FastAPI:
 
     init_sentry()
 
+    # OpenAPI documentation configuration (CRKY-32)
+    from .openapi_config import API_DESCRIPTION, API_VERSION, DOCS_PUBLIC, TAG_METADATA
+
     app = FastAPI(
-        title="CorridorKey WebUI",
-        version="1.0.0",
+        title="CorridorKey API",
+        version=API_VERSION,
+        description=API_DESCRIPTION,
+        openapi_tags=TAG_METADATA,
+        docs_url="/docs" if DOCS_PUBLIC else None,
+        redoc_url="/redoc" if DOCS_PUBLIC else None,
+        openapi_url="/openapi.json" if DOCS_PUBLIC else None,
         lifespan=lifespan,
     )
 
@@ -247,6 +255,20 @@ def create_app() -> FastAPI:
 
     if AUTH_ENABLED:
         logger.info("Auth enabled — JWT validation active on API routes")
+
+    # API version header middleware (CRKY-32)
+    from .api_version import APIVersionMiddleware
+
+    app.add_middleware(APIVersionMiddleware)
+
+    # Protected API docs — when DOCS_PUBLIC=false, serve docs behind JWT auth (CRKY-32)
+    if not DOCS_PUBLIC:
+        from .docs_routes import mount_protected_docs
+
+        mount_protected_docs(app)
+        logger.info("API docs behind auth (set CK_DOCS_PUBLIC=true for open access)")
+    else:
+        logger.info("API docs publicly accessible at /docs and /redoc")
 
     # Health check (CRKY-21)
     @app.get("/api/health")

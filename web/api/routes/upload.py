@@ -49,7 +49,7 @@ async def _save_upload(file: UploadFile, dest: str) -> None:
             f.write(chunk)
 
 
-@router.post("/video")
+@router.post("/video", summary="Upload video file")
 async def upload_video(file: UploadFile, request: Request, name: str | None = None, auto_extract: bool = True):
     """Upload a video file to create a new project/clip.
 
@@ -121,7 +121,7 @@ async def upload_video(file: UploadFile, request: Request, name: str | None = No
     }
 
 
-@router.post("/frames")
+@router.post("/frames", summary="Upload image sequence (ZIP)")
 async def upload_frames(file: UploadFile, request: Request, name: str | None = None):
     """Upload a zip of image frames to create a new clip.
 
@@ -209,7 +209,7 @@ async def upload_frames(file: UploadFile, request: Request, name: str | None = N
     }
 
 
-@router.post("/alpha/{clip_name}")
+@router.post("/alpha/{clip_name}", summary="Upload alpha hint frames")
 async def upload_alpha_hint(clip_name: str, file: UploadFile, request: Request):
     """Upload alpha hint frames (zip) for an existing clip.
 
@@ -272,7 +272,7 @@ async def upload_alpha_hint(clip_name: str, file: UploadFile, request: Request):
     }
 
 
-@router.post("/mask/{clip_name}")
+@router.post("/mask/{clip_name}", summary="Upload VideoMaMa mask frames")
 async def upload_videomama_mask(clip_name: str, file: UploadFile, request: Request):
     """Upload VideoMaMa mask hint frames (zip) for an existing clip.
 

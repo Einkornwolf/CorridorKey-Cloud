@@ -85,8 +85,9 @@ def get_cpu():
     return get_cpu_stats().to_dict()
 
 
-@router.get("/device", response_model=DeviceResponse)
+@router.get("/device", response_model=DeviceResponse, summary="Get compute device")
 def get_device():
+    """Return the active compute device (cuda, mps, or cpu)."""
     service = get_service()
     return DeviceResponse(device=service._device)
 
@@ -118,8 +119,9 @@ def _nvidia_smi_vram() -> dict | None:
         return None
 
 
-@router.get("/vram", response_model=VRAMResponse)
+@router.get("/vram", response_model=VRAMResponse, summary="Get GPU VRAM usage")
 def get_vram():
+    """Return GPU memory usage. Prefers nvidia-smi for system-wide stats, falls back to PyTorch."""
     # Prefer nvidia-smi for system-wide VRAM (includes other processes like Unreal)
     smi = _nvidia_smi_vram()
     if smi:
