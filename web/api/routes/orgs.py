@@ -202,3 +202,17 @@ def get_credits(org_id: str, request: Request):
 
     credits = get_org_credits(org_id)
     return credits.to_dict()
+
+
+@router.get("/{org_id}/storage", dependencies=[Depends(require_authenticated)])
+def get_storage_info(org_id: str, request: Request):
+    """Get storage usage and quota for an org. Must be a member."""
+    user = _get_user(request)
+    store = get_org_store()
+    if not store.get_org(org_id):
+        raise HTTPException(status_code=404, detail="Org not found")
+    if not user.is_admin and not store.is_member(org_id, user.user_id):
+        raise HTTPException(status_code=403, detail="Not a member of this org")
+    from ..storage_quota import get_org_storage_info
+
+    return get_org_storage_info(org_id)

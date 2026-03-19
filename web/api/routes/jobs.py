@@ -78,6 +78,56 @@ def _job_to_schema(job: GPUJob) -> JobSchema:
     )
 
 
+@router.get("/estimate")
+def estimate_job_cost(job_type: str = "inference", frame_count: int = 0, num_shards: int = 1):
+    """Estimate GPU cost for a job based on historical data (CRKY-34).
+
+    Returns estimated GPU-seconds, GPU-minutes, and wall-clock time.
+    """
+    import time
+
+    queue = get_queue()
+    history = queue.history_snapshot
+
+    # Compute average seconds-per-frame from completed jobs of this type
+    completed = [
+        j for j in history
+        if j.status.value == "completed"
+        and j.job_type.value == job_type
+        and j.total_frames > 0
+        and j.started_at > 0
+    ]
+
+    if completed:
+        total_time = sum(time.time() - j.started_at for j in completed if j.started_at > 0)
+        total_frames = sum(j.total_frames for j in completed)
+        avg_spf = total_time / total_frames if total_frames > 0 else 0
+    else:
+        # Default estimates per job type (rough, based on typical hardware)
+        defaults = {
+            "inference": 0.5,  # ~0.5s per frame on RTX 4090
+            "gvm_alpha": 2.0,
+            "videomama_alpha": 1.5,
+            "video_extract": 0.05,
+            "video_stitch": 0.02,
+        }
+        avg_spf = defaults.get(job_type, 1.0)
+
+    estimated_seconds = avg_spf * frame_count
+    wall_clock = estimated_seconds / max(1, num_shards)
+
+    return {
+        "job_type": job_type,
+        "frame_count": frame_count,
+        "num_shards": num_shards,
+        "avg_seconds_per_frame": round(avg_spf, 3),
+        "estimated_gpu_seconds": round(estimated_seconds, 1),
+        "estimated_gpu_minutes": round(estimated_seconds / 60, 1),
+        "estimated_wall_clock_seconds": round(wall_clock, 1),
+        "based_on_history": len(completed) if completed else 0,
+    }
+
+
 @router.get("", response_model=JobListResponse)
 def list_jobs():
     queue = get_queue()

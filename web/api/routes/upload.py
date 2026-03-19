@@ -8,7 +8,7 @@ import shutil
 import tempfile
 import zipfile
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile
 
 from backend.job_queue import GPUJob, JobType
 from backend.project import (
@@ -21,6 +21,7 @@ from backend.project import (
 from ..deps import get_queue, get_service
 from ..path_security import safe_extract_zip
 from ..routes import clips as _clips_mod
+from ..storage_quota import check_storage_quota
 from ..tier_guard import require_member
 
 logger = logging.getLogger(__name__)
@@ -48,13 +49,14 @@ async def _save_upload(file: UploadFile, dest: str) -> None:
 
 
 @router.post("/video")
-async def upload_video(file: UploadFile, name: str | None = None, auto_extract: bool = True):
+async def upload_video(file: UploadFile, request: Request, name: str | None = None, auto_extract: bool = True):
     """Upload a video file to create a new project/clip.
 
     The video is saved into a new project via create_project().
     If auto_extract is True (default), a VIDEO_EXTRACT job is queued
     to extract frames in the background.
     """
+    check_storage_quota(request)
     if not file.filename:
         raise HTTPException(status_code=400, detail="No filename provided")
 

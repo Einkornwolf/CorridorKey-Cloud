@@ -1,0 +1,110 @@
+"""Per-org storage quotas (CRKY-15).
+
+Tracks disk usage per org and enforces configurable quotas.
+Upload endpoints check remaining quota before accepting files.
+"""
+
+from __future__ import annotations
+
+import logging
+import os
+
+from fastapi import HTTPException, Request
+
+from .auth import AUTH_ENABLED, get_current_user
+from .org_isolation import get_base_clips_dir
+from .orgs import get_org_store
+
+logger = logging.getLogger(__name__)
+
+# Default quotas in bytes
+_GB = 1024**3
+DEFAULT_PERSONAL_QUOTA = int(os.environ.get("CK_QUOTA_PERSONAL_GB", "50")) * _GB
+DEFAULT_TEAM_QUOTA = int(os.environ.get("CK_QUOTA_TEAM_GB", "200")) * _GB
+
+
+def get_org_disk_usage(org_id: str) -> int:
+    """Calculate total disk usage for an org in bytes."""
+    base = get_base_clips_dir()
+    if not base:
+        return 0
+    org_dir = os.path.join(base, org_id)
+    if not os.path.isdir(org_dir):
+        return 0
+    total = 0
+    for dirpath, _dirnames, filenames in os.walk(org_dir):
+        for f in filenames:
+            try:
+                total += os.path.getsize(os.path.join(dirpath, f))
+            except OSError:
+                pass
+    return total
+
+
+def get_org_quota(org_id: str) -> int:
+    """Get the quota for an org in bytes.
+
+    Checks for a per-org override in settings, then falls back to
+    defaults based on org type (personal vs team).
+    """
+    from .database import get_storage
+
+    storage = get_storage()
+    overrides = storage.get_setting("storage_quotas", {})
+    if org_id in overrides:
+        return int(overrides[org_id]) * _GB
+
+    org_store = get_org_store()
+    org = org_store.get_org(org_id)
+    if org and org.personal:
+        return DEFAULT_PERSONAL_QUOTA
+    return DEFAULT_TEAM_QUOTA
+
+
+def get_org_storage_info(org_id: str) -> dict:
+    """Get storage usage and quota info for an org."""
+    used = get_org_disk_usage(org_id)
+    quota = get_org_quota(org_id)
+    return {
+        "org_id": org_id,
+        "used_bytes": used,
+        "used_gb": round(used / _GB, 2),
+        "quota_bytes": quota,
+        "quota_gb": round(quota / _GB, 1),
+        "remaining_bytes": max(0, quota - used),
+        "remaining_gb": round(max(0, quota - used) / _GB, 2),
+        "percent_used": round(used / quota * 100, 1) if quota > 0 else 0,
+    }
+
+
+def check_storage_quota(request: Request, additional_bytes: int = 0) -> None:
+    """Check if the user's org has sufficient storage quota.
+
+    Raises HTTP 413 if over quota. No-op when auth is disabled.
+    """
+    if not AUTH_ENABLED:
+        return
+
+    user = get_current_user(request)
+    if not user:
+        return
+    if user.is_admin:
+        return
+
+    org_store = get_org_store()
+    user_orgs = org_store.list_user_orgs(user.user_id)
+    if not user_orgs:
+        return
+
+    org = user_orgs[0]
+    used = get_org_disk_usage(org.org_id)
+    quota = get_org_quota(org.org_id)
+
+    if used + additional_bytes > quota:
+        used_gb = round(used / _GB, 1)
+        quota_gb = round(quota / _GB, 1)
+        raise HTTPException(
+            status_code=413,
+            detail=f"Storage quota exceeded: {used_gb} GB used of {quota_gb} GB. "
+            f"Delete clips or contact an admin to increase your quota.",
+        )
