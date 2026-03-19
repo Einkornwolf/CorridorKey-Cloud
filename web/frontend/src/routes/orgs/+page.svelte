@@ -29,6 +29,8 @@
 	let selectedOrg = $state<OrgInfo | null>(null);
 	let members = $state<OrgMember[]>([]);
 	let membersLoading = $state(false);
+	let orgCredits = $state<{ contributed_hours: number; consumed_hours: number; balance_seconds: number; ratio: number | null } | null>(null);
+	let orgStorage = $state<{ used_gb: number; quota_gb: number; percent_used: number } | null>(null);
 
 	// Add member
 	let addMemberEmail = $state('');
@@ -76,9 +78,17 @@
 	async function selectOrg(org: OrgInfo) {
 		selectedOrg = org;
 		membersLoading = true;
+		orgCredits = null;
+		orgStorage = null;
 		try {
-			const res = await authFetch(`/api/orgs/${org.org_id}/members`);
-			members = res.members;
+			const [membersRes, creditsRes, storageRes] = await Promise.all([
+				authFetch(`/api/orgs/${org.org_id}/members`),
+				authFetch(`/api/orgs/${org.org_id}/credits`).catch(() => null),
+				authFetch(`/api/orgs/${org.org_id}/storage`).catch(() => null),
+			]);
+			members = membersRes.members;
+			orgCredits = creditsRes;
+			orgStorage = storageRes;
 		} catch {
 			members = [];
 		} finally {
@@ -169,6 +179,42 @@
 		</div>
 
 		<div class="detail-layout">
+			<!-- Credits & Storage -->
+			{#if orgCredits || orgStorage}
+				<div class="stats-row">
+					{#if orgCredits}
+						<section class="stat-card">
+							<h2 class="card-title mono">GPU CREDITS</h2>
+							<div class="credit-bars">
+								<div class="credit-row">
+									<span class="credit-label mono">CONTRIBUTED</span>
+									<span class="credit-value mono">{orgCredits.contributed_hours}h</span>
+								</div>
+								<div class="credit-row">
+									<span class="credit-label mono">CONSUMED</span>
+									<span class="credit-value mono">{orgCredits.consumed_hours}h</span>
+								</div>
+								<div class="credit-balance" class:positive={orgCredits.balance_seconds >= 0} class:negative={orgCredits.balance_seconds < 0}>
+									<span class="balance-label mono">BALANCE</span>
+									<span class="balance-value mono">{orgCredits.balance_seconds >= 0 ? '+' : ''}{(orgCredits.balance_seconds / 3600).toFixed(2)}h</span>
+								</div>
+							</div>
+						</section>
+					{/if}
+					{#if orgStorage}
+						<section class="stat-card">
+							<h2 class="card-title mono">STORAGE</h2>
+							<div class="storage-info">
+								<div class="storage-bar">
+									<div class="storage-fill" style="width: {Math.min(100, orgStorage.percent_used)}%"></div>
+								</div>
+								<span class="storage-text mono">{orgStorage.used_gb} GB / {orgStorage.quota_gb} GB ({orgStorage.percent_used}%)</span>
+							</div>
+						</section>
+					{/if}
+				</div>
+			{/if}
+
 			<!-- Members -->
 			<section class="detail-card">
 				<h2 class="card-title mono">MEMBERS</h2>
@@ -371,6 +417,35 @@
 	.btn-danger:hover { background: rgba(255, 82, 82, 0.1); }
 
 	.form-error { padding: var(--sp-2) var(--sp-3); background: rgba(255, 82, 82, 0.08); border: 1px solid rgba(255, 82, 82, 0.2); border-radius: 6px; font-size: 12px; color: var(--state-error); }
+
+	.stats-row { display: flex; gap: var(--sp-3); }
+	.stat-card {
+		flex: 1; display: flex; flex-direction: column; gap: var(--sp-3);
+		padding: var(--sp-4); background: var(--surface-2);
+		border: 1px solid var(--border); border-radius: var(--radius-lg);
+	}
+	.credit-bars { display: flex; flex-direction: column; gap: var(--sp-2); }
+	.credit-row { display: flex; justify-content: space-between; align-items: center; }
+	.credit-label { font-size: 10px; letter-spacing: 0.08em; color: var(--text-tertiary); }
+	.credit-value { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+	.credit-balance {
+		display: flex; justify-content: space-between; align-items: center;
+		padding-top: var(--sp-2); border-top: 1px solid var(--border); margin-top: var(--sp-1);
+	}
+	.balance-label { font-size: 10px; letter-spacing: 0.08em; color: var(--text-tertiary); }
+	.balance-value { font-size: 16px; font-weight: 700; }
+	.credit-balance.positive .balance-value { color: var(--state-complete); }
+	.credit-balance.negative .balance-value { color: var(--state-error); }
+
+	.storage-info { display: flex; flex-direction: column; gap: var(--sp-2); }
+	.storage-bar {
+		height: 6px; background: var(--surface-4); border-radius: 3px; overflow: hidden;
+	}
+	.storage-fill {
+		height: 100%; background: var(--accent); border-radius: 3px;
+		transition: width 0.3s;
+	}
+	.storage-text { font-size: 12px; color: var(--text-secondary); }
 
 	.add-member { border-top: 1px solid var(--border); padding-top: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
 </style>

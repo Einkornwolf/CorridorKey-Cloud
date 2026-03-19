@@ -17,6 +17,7 @@
 	let { children } = $props();
 	let authChecked = $state(false);
 	let authEnabled = $state(false);
+	let creditBalance = $state<{ hours: string; positive: boolean } | null>(null);
 
 	let connected = $state(false);
 
@@ -102,6 +103,21 @@
 		refreshClips();
 		refreshJobs();
 		refreshNodes();
+
+		// Load credit balance for sidebar (CRKY-6)
+		if (authEnabled) {
+			try {
+				const token = localStorage.getItem('ck:auth_token');
+				const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+				const orgsRes = await fetch('/api/orgs', { headers }).then(r => r.json());
+				const orgId = orgsRes.orgs?.[0]?.org_id;
+				if (orgId) {
+					const credits = await fetch(`/api/orgs/${orgId}/credits`, { headers }).then(r => r.json());
+					const hrs = (credits.balance_seconds / 3600).toFixed(1);
+					creditBalance = { hours: hrs, positive: credits.balance_seconds >= 0 };
+				}
+			} catch { /* ignore */ }
+		}
 
 		const unsubWs = onMessage((msg) => {
 			if (msg.type === 'job:progress') {
@@ -212,6 +228,12 @@
 					<span class="conn-badge mono" class:live={connected}>{connected ? 'LIVE' : 'OFFLINE'}</span>
 				</div>
 			{:else}
+				{#if creditBalance}
+					<div class="credit-indicator" class:positive={creditBalance.positive} class:negative={!creditBalance.positive}>
+						<span class="credit-icon mono">GPU</span>
+						<span class="credit-amt mono">{creditBalance.positive ? '+' : ''}{creditBalance.hours}h</span>
+					</div>
+				{/if}
 				<div class="device-row">
 					<span class="device-dot" class:online={connected}></span>
 					<span class="conn-badge mono" class:live={connected}>{connected ? 'CONNECTED' : 'OFFLINE'}</span>
@@ -490,6 +512,27 @@
 		transition: width 0.3s ease-out;
 		box-shadow: 0 0 6px rgba(255, 242, 3, 0.2);
 	}
+
+	.credit-indicator {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+		padding: var(--sp-1) var(--sp-2);
+		border-radius: var(--radius-sm);
+	}
+	.credit-indicator.positive { background: rgba(93, 216, 121, 0.08); }
+	.credit-indicator.negative { background: rgba(255, 82, 82, 0.08); }
+	.credit-icon {
+		font-size: 9px;
+		letter-spacing: 0.06em;
+		color: var(--text-tertiary);
+	}
+	.credit-amt {
+		font-size: 12px;
+		font-weight: 600;
+	}
+	.credit-indicator.positive .credit-amt { color: var(--state-complete); }
+	.credit-indicator.negative .credit-amt { color: var(--state-error); }
 
 	.user-row {
 		display: flex;

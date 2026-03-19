@@ -231,6 +231,9 @@ export const api = {
 			request<Job[]>('POST', '/api/jobs/gvm', { clip_names }),
 		submitVideoMaMa: (clip_names: string[], chunk_size = 50) =>
 			request<Job[]>('POST', '/api/jobs/videomama', { clip_names, chunk_size }),
+		estimate: (jobType: string, frameCount: number, numShards = 1) =>
+			request<{ estimated_gpu_minutes: number; estimated_wall_clock_seconds: number; avg_seconds_per_frame: number; based_on_history: number }>(
+				'GET', `/api/jobs/estimate?job_type=${jobType}&frame_count=${frameCount}&num_shards=${numShards}`),
 		getLog: (jobId: string) => request<Record<string, unknown>>('GET', `/api/jobs/${jobId}/log`),
 		cancel: (jobId: string) => request<unknown>('DELETE', `/api/jobs/${jobId}`),
 		cancelAll: () => request<unknown>('DELETE', '/api/jobs'),

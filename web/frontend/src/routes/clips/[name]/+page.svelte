@@ -18,6 +18,7 @@
 
 	let params = $state<InferenceParams>({ ...$defaultParams });
 	let outputConfig = $state<OutputConfig>({ ...$defaultOutputConfig });
+	let costEstimate = $state<{ estimated_gpu_minutes: number; estimated_wall_clock_seconds: number } | null>(null);
 
 	let clipName = $derived(decodeURIComponent(page.params.name));
 
@@ -50,6 +51,13 @@
 		error = null;
 		try {
 			clip = await api.clips.get(clipName);
+			// Fetch cost estimate if clip has frames
+			if (clip.frame_count > 0) {
+				try {
+					const est = await api.jobs.estimate('inference', clip.frame_count, $autoShard ? 0 : 1);
+					costEstimate = est;
+				} catch { /* ignore */ }
+			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : String(e);
 		} finally {
@@ -283,6 +291,14 @@
 							Run Full Pipeline
 						</button>
 						<div class="divider-label mono">OR RUN INDIVIDUAL STEPS</div>
+					{/if}
+
+					{#if costEstimate && clip && clip.frame_count > 0}
+						<div class="cost-estimate mono">
+							<span class="est-label">Estimated cost:</span>
+							<span class="est-value">~{costEstimate.estimated_gpu_minutes} GPU-min</span>
+							<span class="est-detail">({clip.frame_count} frames, ~{Math.round(costEstimate.estimated_wall_clock_seconds)}s wall clock)</span>
+						</div>
 					{/if}
 
 					{#if canExtract}
@@ -567,4 +583,18 @@
 		text-align: center;
 		padding: var(--sp-2);
 	}
+
+	.cost-estimate {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-3);
+		background: var(--surface-3);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-sm);
+		font-size: 11px;
+	}
+	.est-label { color: var(--text-tertiary); }
+	.est-value { color: var(--accent); font-weight: 600; }
+	.est-detail { color: var(--text-tertiary); }
 </style>
