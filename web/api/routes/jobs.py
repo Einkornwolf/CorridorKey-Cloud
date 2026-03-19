@@ -204,21 +204,31 @@ def submit_sharded_inference(req: ShardedInferenceRequest, request: Request):
     service = get_service()
     submitted = []
 
-    # Count available GPU slots with VRAM weights for proportional sharding
+    # Count ACTUALLY available GPU slots — only free GPUs that can accept work
+    from ..worker import get_local_gpu_enabled
+
     gpu_weights: list[float] = []
-    try:
-        from device_utils import enumerate_gpus
 
-        for g in enumerate_gpus():
-            gpu_weights.append(max(1.0, g.vram_total_gb))
-    except Exception:
-        gpu_weights.append(1.0)
+    # Local GPUs — only if local GPU processing is enabled
+    if get_local_gpu_enabled():
+        try:
+            from device_utils import enumerate_gpus
 
-    online_nodes = [n for n in registry.list_nodes() if n.can_accept_jobs and n.accepts_job_type("inference")]
+            for g in enumerate_gpus():
+                gpu_weights.append(max(1.0, g.vram_total_gb))
+        except Exception:
+            gpu_weights.append(1.0)
+
+    # Remote nodes — only online, not busy, not paused, accepting inference
+    online_nodes = [
+        n for n in registry.list_nodes()
+        if n.can_accept_jobs and n.accepts_job_type("inference") and n.status != "busy"
+    ]
     for node in online_nodes:
         if node.gpus:
             for g in node.gpus:
-                gpu_weights.append(max(1.0, g.vram_total_gb))
+                if g.status != "busy":
+                    gpu_weights.append(max(1.0, g.vram_total_gb))
         else:
             gpu_weights.append(max(1.0, node.vram_total_gb))
 
