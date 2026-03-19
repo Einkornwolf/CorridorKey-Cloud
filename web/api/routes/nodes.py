@@ -329,7 +329,7 @@ def get_next_job(node_id: str):
 
     # Assign the job to this node
     registry.set_busy(node_id, job.id)
-    manager.send_job_status(job.id, JobStatus.RUNNING.value)
+    manager.send_job_status(job.id, JobStatus.RUNNING.value, org_id=job.org_id)
 
     # Build job payload with file info
     clip = None
@@ -364,7 +364,8 @@ def report_job_progress(node_id: str, job_id: str, current: int, total: int):
     if job:
         job.current_frame = current
         job.total_frames = total
-    manager.send_job_progress(job_id, "", current, total)
+    oid = job.org_id if job else None
+    manager.send_job_progress(job_id, "", current, total, org_id=oid)
     return {"status": "ok"}
 
 
@@ -376,12 +377,13 @@ def report_job_result(node_id: str, req: JobResultRequest):
     if not job:
         raise HTTPException(status_code=404, detail=f"Job '{req.job_id}' not found")
 
+    oid = job.org_id
     if req.status == "completed":
         queue.complete_job(job)
-        manager.send_job_status(job.id, JobStatus.COMPLETED.value)
+        manager.send_job_status(job.id, JobStatus.COMPLETED.value, org_id=oid)
     else:
         queue.fail_job(job, req.error_message or "Unknown error")
-        manager.send_job_status(job.id, JobStatus.FAILED.value, error=req.error_message)
+        manager.send_job_status(job.id, JobStatus.FAILED.value, error=req.error_message, org_id=oid)
 
     registry.set_idle(node_id)
 

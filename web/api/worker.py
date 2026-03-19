@@ -155,7 +155,7 @@ def _execute_extraction(job: GPUJob, clip, clips_dir: str) -> None:
     def on_progress(current: int, total: int) -> None:
         job.current_frame = current
         job.total_frames = total
-        manager.send_job_progress(job.id, clip.name, current, total)
+        manager.send_job_progress(job.id, clip.name, current, total, org_id=job.org_id)
         if job.is_cancelled:
             cancel_event.set()
 
@@ -173,7 +173,7 @@ def _execute_extraction(job: GPUJob, clip, clips_dir: str) -> None:
     except Exception:
         pass
 
-    manager.send_clip_state_changed(clip.name, "RAW")
+    manager.send_clip_state_changed(clip.name, "RAW", org_id=job.org_id)
 
 
 def _execute_gpu_job(service: CorridorKeyService, job: GPUJob, clips_dir: str) -> None:
@@ -185,14 +185,14 @@ def _execute_gpu_job(service: CorridorKeyService, job: GPUJob, clips_dir: str) -
     def on_progress(clip_name: str, current: int, total: int) -> None:
         job.current_frame = current
         job.total_frames = total
-        manager.send_job_progress(job.id, clip_name, current, total)
+        manager.send_job_progress(job.id, clip_name, current, total, org_id=job.org_id)
         if current % 10 == 0:
             vram = service.get_vram_info()
             if vram:
                 manager.send_vram_update(vram)
 
     def on_warning(message: str) -> None:
-        manager.send_job_warning(job.id, message)
+        manager.send_job_warning(job.id, message, org_id=job.org_id)
 
     if job.job_type == JobType.INFERENCE:
         params = InferenceParams.from_dict(job.params.get("inference_params", {}))
@@ -213,7 +213,7 @@ def _execute_gpu_job(service: CorridorKeyService, job: GPUJob, clips_dir: str) -
         chunk_size = job.params.get("chunk_size", 50)
         service.run_videomama(clip, job=job, on_progress=on_progress, on_warning=on_warning, chunk_size=chunk_size)
 
-    manager.send_clip_state_changed(job.clip_name, clip.state.value)
+    manager.send_clip_state_changed(job.clip_name, clip.state.value, org_id=job.org_id)
 
 
 def _chain_next_pipeline_step(job: GPUJob, queue: GPUJobQueue, clips_dir: str, service: CorridorKeyService) -> None:
@@ -263,7 +263,7 @@ def _chain_next_pipeline_step(job: GPUJob, queue: GPUJobQueue, clips_dir: str, s
 
 def _run_job(service: CorridorKeyService, job: GPUJob, queue: GPUJobQueue, clips_dir: str) -> None:
     """Run a single job (called from thread pool). Job must already be claimed."""
-    manager.send_job_status(job.id, JobStatus.RUNNING.value)
+    manager.send_job_status(job.id, JobStatus.RUNNING.value, org_id=job.org_id)
 
     try:
         if job.job_type in _CPU_JOB_TYPES:
@@ -275,13 +275,13 @@ def _run_job(service: CorridorKeyService, job: GPUJob, queue: GPUJobQueue, clips
             _execute_gpu_job(service, job, clips_dir)
 
         queue.complete_job(job)
-        manager.send_job_status(job.id, JobStatus.COMPLETED.value)
+        manager.send_job_status(job.id, JobStatus.COMPLETED.value, org_id=job.org_id)
 
         # Auto-chain next pipeline step
         _chain_next_pipeline_step(job, queue, clips_dir, service)
     except JobCancelledError:
         queue.mark_cancelled(job)
-        manager.send_job_status(job.id, JobStatus.CANCELLED.value)
+        manager.send_job_status(job.id, JobStatus.CANCELLED.value, org_id=job.org_id)
         from .app import _save_history_snapshot
 
         _save_history_snapshot(queue)
@@ -289,7 +289,7 @@ def _run_job(service: CorridorKeyService, job: GPUJob, queue: GPUJobQueue, clips
         error_msg = str(e)
         logger.exception(f"Job {job.id} failed: {error_msg}")
         queue.fail_job(job, error_msg)
-        manager.send_job_status(job.id, JobStatus.FAILED.value, error=error_msg)
+        manager.send_job_status(job.id, JobStatus.FAILED.value, error=error_msg, org_id=job.org_id)
 
 
 # Track running GPU jobs
@@ -342,27 +342,32 @@ def worker_loop(
 
         def _on_sp_progress(job_id, clip_name, current, total):
             job = queue.find_job_by_id(job_id)
+            oid = job.org_id if job else None
             if job:
                 job.current_frame = current
                 job.total_frames = total
-            manager.send_job_progress(job_id, clip_name, current, total)
+            manager.send_job_progress(job_id, clip_name, current, total, org_id=oid)
 
         def _on_sp_warning(job_id, message):
-            manager.send_job_warning(job_id, message)
+            job = queue.find_job_by_id(job_id)
+            oid = job.org_id if job else None
+            manager.send_job_warning(job_id, message, org_id=oid)
 
         def _on_sp_completed(job_id, clip_name, clip_state):
             job = queue.find_job_by_id(job_id)
             if job:
+                oid = job.org_id
                 queue.complete_job(job)
-                manager.send_job_status(job_id, JobStatus.COMPLETED.value)
-                manager.send_clip_state_changed(clip_name, clip_state)
+                manager.send_job_status(job_id, JobStatus.COMPLETED.value, org_id=oid)
+                manager.send_clip_state_changed(clip_name, clip_state, org_id=oid)
                 _chain_next_pipeline_step(job, queue, clips_dir, service)
 
         def _on_sp_failed(job_id, error):
             job = queue.find_job_by_id(job_id)
             if job:
+                oid = job.org_id
                 queue.fail_job(job, error)
-                manager.send_job_status(job_id, JobStatus.FAILED.value, error=error)
+                manager.send_job_status(job_id, JobStatus.FAILED.value, error=error, org_id=oid)
 
         gpu_subprocess_pool.set_callbacks(
             on_progress=_on_sp_progress,

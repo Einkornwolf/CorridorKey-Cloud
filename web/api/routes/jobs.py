@@ -129,14 +129,24 @@ def estimate_job_cost(job_type: str = "inference", frame_count: int = 0, num_sha
 
 
 @router.get("", response_model=JobListResponse)
-def list_jobs():
+def list_jobs(request: Request):
     queue = get_queue()
-    running = queue.running_jobs
+    user = get_current_user(request)
+
+    def _visible(job):
+        """Filter jobs by org — admins see all, members see their org's jobs."""
+        if not user or user.is_admin:
+            return True
+        return not job.org_id or job.org_id in (user.org_ids or [])
+
+    running = [j for j in queue.running_jobs if _visible(j)]
+    queued = [j for j in queue.queue_snapshot if _visible(j)]
+    history = [j for j in queue.history_snapshot if _visible(j)]
     return JobListResponse(
         current=_job_to_schema(running[0]) if running else None,
         running=[_job_to_schema(j) for j in running],
-        queued=[_job_to_schema(j) for j in queue.queue_snapshot],
-        history=[_job_to_schema(j) for j in queue.history_snapshot],
+        queued=[_job_to_schema(j) for j in queued],
+        history=[_job_to_schema(j) for j in history],
     )
 
 

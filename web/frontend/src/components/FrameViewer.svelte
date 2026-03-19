@@ -208,12 +208,18 @@
 		frameCount > 0 ? api.preview.url(clipName, selectedPass, currentFrame) : null
 	);
 
+	function authUrl(path: string): string {
+		const token = localStorage.getItem('ck:auth_token');
+		const sep = path.includes('?') ? '&' : '?';
+		return token ? `${path}${sep}token=${encodeURIComponent(token)}` : path;
+	}
+
 	let videoUrl = $derived(
-		frameCount > 0 ? `/api/preview/${encodeURIComponent(clipName)}/${selectedPass}/video?fps=${playbackFps}` : null
+		frameCount > 0 ? authUrl(`/api/preview/${encodeURIComponent(clipName)}/${selectedPass}/video?fps=${playbackFps}`) : null
 	);
 
 	let downloadUrl = $derived(
-		frameCount > 0 ? `/api/preview/${encodeURIComponent(clipName)}/${selectedPass}/download` : null
+		frameCount > 0 ? authUrl(`/api/preview/${encodeURIComponent(clipName)}/${selectedPass}/download`) : null
 	);
 
 	const passLabels: Record<string, string> = {

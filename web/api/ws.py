@@ -52,10 +52,14 @@ class ConnectionManager:
     def connection_count(self) -> int:
         return len(self._connections)
 
-    async def _broadcast(self, message: dict[str, Any]) -> None:
+    async def _broadcast(self, message: dict[str, Any], org_id: str | None = None) -> None:
+        """Broadcast to connections, optionally filtered by org_id."""
         payload = json.dumps(message)
         dead: list[WebSocket] = []
         for conn in self._connections:
+            # Filter by org if specified — admins (empty org_ids) see everything
+            if org_id and conn.org_ids and org_id not in conn.org_ids:
+                continue
             try:
                 await conn.ws.send_text(payload)
             except Exception:
@@ -63,48 +67,55 @@ class ConnectionManager:
         for ws in dead:
             self.disconnect(ws)
 
-    def broadcast_sync(self, message: dict[str, Any]) -> None:
+    def broadcast_sync(self, message: dict[str, Any], org_id: str | None = None) -> None:
         """Thread-safe broadcast from the worker thread."""
         if not self._connections or self._loop is None:
             return
         try:
-            asyncio.run_coroutine_threadsafe(self._broadcast(message), self._loop)
+            asyncio.run_coroutine_threadsafe(self._broadcast(message, org_id), self._loop)
         except RuntimeError:
             pass
 
-    def send_job_progress(self, job_id: str, clip_name: str, current: int, total: int) -> None:
+    def send_job_progress(
+        self, job_id: str, clip_name: str, current: int, total: int, org_id: str | None = None
+    ) -> None:
         self.broadcast_sync(
             {
                 "type": "job:progress",
                 "data": {"job_id": job_id, "clip_name": clip_name, "current": current, "total": total},
-            }
+            },
+            org_id=org_id,
         )
 
-    def send_job_status(self, job_id: str, status: str, error: str | None = None) -> None:
+    def send_job_status(self, job_id: str, status: str, error: str | None = None, org_id: str | None = None) -> None:
         self.broadcast_sync(
             {
                 "type": "job:status",
                 "data": {"job_id": job_id, "status": status, "error": error},
-            }
+            },
+            org_id=org_id,
         )
 
-    def send_job_warning(self, job_id: str, message: str) -> None:
+    def send_job_warning(self, job_id: str, message: str, org_id: str | None = None) -> None:
         self.broadcast_sync(
             {
                 "type": "job:warning",
                 "data": {"job_id": job_id, "message": message},
-            }
+            },
+            org_id=org_id,
         )
 
-    def send_clip_state_changed(self, clip_name: str, new_state: str) -> None:
+    def send_clip_state_changed(self, clip_name: str, new_state: str, org_id: str | None = None) -> None:
         self.broadcast_sync(
             {
                 "type": "clip:state_changed",
                 "data": {"clip_name": clip_name, "new_state": new_state},
-            }
+            },
+            org_id=org_id,
         )
 
     def send_vram_update(self, vram: dict) -> None:
+        # VRAM is server-level, no org filtering (only admins see it anyway)
         self.broadcast_sync(
             {
                 "type": "vram:update",
