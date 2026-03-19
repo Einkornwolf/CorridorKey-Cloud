@@ -200,6 +200,18 @@ def unload_engines():
     return {"status": "unloaded"}
 
 
+@router.get("/storage-backend", summary="Get storage backend info")
+def get_storage_backend():
+    """Return the configured file storage backend type and capabilities."""
+    from ..file_storage import get_file_storage
+
+    storage = get_file_storage()
+    return {
+        "backend": storage.backend_type,
+        "supports_presigned_urls": storage.backend_type == "s3",
+    }
+
+
 @router.get("/weights")
 def get_weights():
     """Check installed weights status."""
