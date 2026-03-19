@@ -257,3 +257,61 @@ def set_ip_allowlist(org_id: str, req: IPAllowlistRequest, request: Request):
     audit_from_request("org.ip_allowlist_updated", request, target_type="org", target_id=org_id,
                        details={"cidrs": req.cidrs})
     return {"org_id": org_id, "cidrs": req.cidrs}
+
+
+# --- Webhooks (CRKY-31) ---
+
+
+class WebhookRequest(BaseModel):
+    url: str
+    events: list[str]
+    format: str = "json"  # "json", "discord", "slack"
+
+
+@router.get("/{org_id}/webhooks", dependencies=[Depends(require_authenticated)])
+def list_org_webhooks(org_id: str, request: Request):
+    """List webhooks for an org. Org admin only."""
+    user = _get_user(request)
+    store = get_org_store()
+    if not store.get_org(org_id):
+        raise HTTPException(status_code=404, detail="Org not found")
+    if not user.is_admin and not store.is_org_admin(org_id, user.user_id):
+        raise HTTPException(status_code=403, detail="Only org admins can view webhooks")
+    from ..webhooks import list_webhooks
+
+    return {"webhooks": [h.to_dict() for h in list_webhooks(org_id)]}
+
+
+@router.post("/{org_id}/webhooks", dependencies=[Depends(require_authenticated)])
+def create_org_webhook(org_id: str, req: WebhookRequest, request: Request):
+    """Create a webhook for an org. Org admin only."""
+    user = _get_user(request)
+    store = get_org_store()
+    if not store.get_org(org_id):
+        raise HTTPException(status_code=404, detail="Org not found")
+    if not user.is_admin and not store.is_org_admin(org_id, user.user_id):
+        raise HTTPException(status_code=403, detail="Only org admins can create webhooks")
+    valid_events = {"job_started", "job_completed", "job_failed", "node_offline", "node_online"}
+    invalid = set(req.events) - valid_events
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Invalid events: {invalid}. Valid: {valid_events}")
+    if req.format not in ("json", "discord", "slack"):
+        raise HTTPException(status_code=400, detail="Format must be 'json', 'discord', or 'slack'")
+    from ..webhooks import create_webhook
+
+    hook = create_webhook(org_id, req.url, req.events, req.format, user.user_id)
+    return hook.to_dict()
+
+
+@router.delete("/{org_id}/webhooks/{hook_id}", dependencies=[Depends(require_authenticated)])
+def delete_org_webhook(org_id: str, hook_id: str, request: Request):
+    """Delete a webhook. Org admin only."""
+    user = _get_user(request)
+    store = get_org_store()
+    if not user.is_admin and not store.is_org_admin(org_id, user.user_id):
+        raise HTTPException(status_code=403, detail="Only org admins can delete webhooks")
+    from ..webhooks import delete_webhook
+
+    if not delete_webhook(hook_id):
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    return {"status": "deleted"}

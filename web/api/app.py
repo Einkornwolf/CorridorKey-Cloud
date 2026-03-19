@@ -152,14 +152,41 @@ async def lifespan(app: FastAPI):
             queue._history.append(job)
         logger.info(f"Restored {len(saved_history)} jobs from history")
 
-    # Save history and track GPU credits whenever a job finishes
+    # Save history, track credits, and fire webhooks on job completion
     def _persist_history(_clip_name: str) -> None:
         _save_history_snapshot(queue)
-        # Track consumed GPU-seconds for the completing job (CRKY-6)
         _track_consumed_credits(queue)
+        # Fire webhook (CRKY-31)
+        try:
+            history = queue.history_snapshot
+            if history:
+                job = history[-1]
+                if job.org_id:
+                    from .webhooks import fire_event
+
+                    fire_event("job_completed", job.org_id, {
+                        "job_id": job.id, "clip_name": job.clip_name,
+                        "job_type": job.job_type.value, "frames": job.total_frames,
+                    })
+        except Exception:
+            pass
 
     def _persist_history_err(_clip_name: str, _error: str) -> None:
         _save_history_snapshot(queue)
+        # Fire webhook for failure (CRKY-31)
+        try:
+            history = queue.history_snapshot
+            if history:
+                job = history[-1]
+                if job.org_id:
+                    from .webhooks import fire_event
+
+                    fire_event("job_failed", job.org_id, {
+                        "job_id": job.id, "clip_name": job.clip_name,
+                        "job_type": job.job_type.value, "error": _error,
+                    })
+        except Exception:
+            pass
 
     queue.on_completion = _persist_history
     queue.on_error = _persist_history_err
