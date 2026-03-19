@@ -1,0 +1,66 @@
+# CorridorKey alert rules (CRKY-27)
+
+groups:
+  - name: corridorkey
+    rules:
+      # Node offline for more than 5 minutes
+      - alert: NodeOffline
+        expr: corridorkey_nodes_offline > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $value }} node(s) offline"
+          description: "One or more render farm nodes have been offline for 5+ minutes."
+
+      # Disk space critically low (< 10% free)
+      - alert: DiskSpaceLow
+        expr: (corridorkey_disk_free_gb / corridorkey_disk_total_gb) < 0.1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critically low ({{ $value | humanizePercentage }} free)"
+          description: "Less than 10% disk space remaining on the projects volume."
+
+      # Job queue depth > 50 (backlog building up)
+      - alert: JobQueueBacklog
+        expr: corridorkey_jobs_queued > 50
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Job queue backlog: {{ $value }} jobs queued"
+          description: "More than 50 jobs have been queued for 10+ minutes."
+
+      # No jobs completed in the last hour despite having queued jobs
+      - alert: JobProcessingStalled
+        expr: corridorkey_jobs_completed_last_hour == 0 and corridorkey_jobs_queued > 0
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Job processing stalled"
+          description: "Jobs are queued but none have completed in the last 30 minutes."
+
+      # High job failure rate (> 30% of recent jobs failed)
+      - alert: HighJobFailureRate
+        expr: >
+          corridorkey_jobs_failed_total
+          / (corridorkey_jobs_completed_total + corridorkey_jobs_failed_total) > 0.3
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High job failure rate"
+          description: "More than 30% of jobs have failed."
+
+      # Server down (no metrics scraped)
+      - alert: ServerDown
+        expr: up{job="corridorkey"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CorridorKey server is down"
+          description: "The CorridorKey web server is not responding to scrapes."

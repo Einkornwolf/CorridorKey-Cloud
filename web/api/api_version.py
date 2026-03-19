@@ -17,10 +17,15 @@ from .openapi_config import API_VERSION
 
 
 class APIVersionMiddleware(BaseHTTPMiddleware):
-    """Injects X-API-Version header on API responses."""
+    """Injects X-API-Version header on API responses and counts requests."""
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
-        if request.url.path.startswith("/api/") or request.url.path in ("/docs", "/redoc", "/openapi.json"):
+        is_api = request.url.path.startswith("/api/") or request.url.path in ("/docs", "/redoc", "/openapi.json")
+        if is_api:
             response.headers["X-API-Version"] = API_VERSION
+            # Count API requests for Prometheus metrics (CRKY-27)
+            from .metrics import increment_request_count
+
+            increment_request_count()
         return response

@@ -1,0 +1,14 @@
+# Grafana auto-provisioned dashboards (CRKY-27)
+apiVersion: 1
+
+providers:
+  - name: CorridorKey
+    orgId: 1
+    folder: CorridorKey
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
