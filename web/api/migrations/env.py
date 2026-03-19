@@ -13,11 +13,11 @@ from sqlalchemy import create_engine
 # Add project root to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
-# Database URL from environment
-DATABASE_URL = os.environ.get("CK_DATABASE_URL", "")
+# Migration URL — prefer CK_MIGRATION_URL (supabase_admin) over CK_DATABASE_URL (postgres)
+DATABASE_URL = os.environ.get("CK_MIGRATION_URL", os.environ.get("CK_DATABASE_URL", ""))
 
 if not DATABASE_URL:
-    raise RuntimeError("CK_DATABASE_URL environment variable is required for migrations")
+    raise RuntimeError("CK_DATABASE_URL or CK_MIGRATION_URL environment variable is required for migrations")
 
 
 def run_migrations_offline():

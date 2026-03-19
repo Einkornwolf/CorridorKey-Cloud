@@ -143,6 +143,7 @@ services:
       - CK_GOTRUE_INTERNAL_URL=http://supabase-auth:9999
       - CK_AUTH_TOKEN=${CK_AUTH_TOKEN:-}
       - CK_DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@supabase-db:5432/${POSTGRES_DB:-corridorkey}
+      - CK_MIGRATION_URL=postgresql://supabase_admin:${POSTGRES_PASSWORD}@supabase-db:5432/${POSTGRES_DB:-corridorkey}
       - CK_SENTRY_DSN=${CK_SENTRY_DSN:-}
       - CK_METRICS_ENABLED=${CK_METRICS_ENABLED:-false}
       - CK_ENVIRONMENT=${CK_ENVIRONMENT:-development}
