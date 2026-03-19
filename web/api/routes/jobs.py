@@ -41,7 +41,11 @@ def _stamp_job(job: GPUJob, request: Request | None) -> GPUJob:
     user = get_current_user(request)
     if user:
         job.submitted_by = user.user_id
-        job.org_id = user.org_ids[0] if user.org_ids else None
+        # Look up org from org store (JWT org_ids may be empty)
+        from ..orgs import get_org_store
+
+        user_orgs = get_org_store().list_user_orgs(user.user_id)
+        job.org_id = user_orgs[0].org_id if user_orgs else None
     return job
 
 
@@ -133,11 +137,20 @@ def list_jobs(request: Request):
     queue = get_queue()
     user = get_current_user(request)
 
+    # Look up user's org_ids from org store (JWT org_ids may be empty)
+    user_org_ids: set[str] = set()
+    if user and not user.is_admin:
+        from ..orgs import get_org_store
+
+        user_org_ids = {o.org_id for o in get_org_store().list_user_orgs(user.user_id)}
+
     def _visible(job):
         """Filter jobs by org — admins see all, members see their org's jobs."""
         if not user or user.is_admin:
             return True
-        return not job.org_id or job.org_id in (user.org_ids or [])
+        if not job.org_id:
+            return True  # Legacy jobs with no org visible to all
+        return job.org_id in user_org_ids
 
     running = [j for j in queue.running_jobs if _visible(j)]
     queued = [j for j in queue.queue_snapshot if _visible(j)]

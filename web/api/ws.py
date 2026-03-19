@@ -26,6 +26,7 @@ class AuthenticatedConnection:
     ws: WebSocket
     user_id: str = ""
     org_ids: list[str] = field(default_factory=list)
+    is_admin: bool = False
 
 
 class ConnectionManager:
@@ -38,9 +39,11 @@ class ConnectionManager:
     def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
 
-    async def connect(self, ws: WebSocket, user_id: str = "", org_ids: list[str] | None = None) -> None:
+    async def connect(
+        self, ws: WebSocket, user_id: str = "", org_ids: list[str] | None = None, is_admin: bool = False
+    ) -> None:
         await ws.accept()
-        conn = AuthenticatedConnection(ws=ws, user_id=user_id, org_ids=org_ids or [])
+        conn = AuthenticatedConnection(ws=ws, user_id=user_id, org_ids=org_ids or [], is_admin=is_admin)
         self._connections.append(conn)
         logger.info(f"WebSocket connected ({len(self._connections)} total)")
 
@@ -57,8 +60,8 @@ class ConnectionManager:
         payload = json.dumps(message)
         dead: list[WebSocket] = []
         for conn in self._connections:
-            # Filter by org if specified — admins (empty org_ids) see everything
-            if org_id and conn.org_ids and org_id not in conn.org_ids:
+            # Admins see everything. Other users only see their orgs' events.
+            if org_id and not conn.is_admin and conn.org_ids and org_id not in conn.org_ids:
                 continue
             try:
                 await conn.ws.send_text(payload)
@@ -165,6 +168,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 
     user_id = ""
     org_ids: list[str] = []
+    tier = ""
 
     if AUTH_ENABLED:
         token = ws.query_params.get("token", "")
@@ -177,9 +181,20 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             return
         user_id = claims.get("sub", "")
         app_metadata = claims.get("app_metadata", {})
-        org_ids = app_metadata.get("org_ids", [])
+        tier = app_metadata.get("tier", "pending")
+        # Look up org_ids from org store (JWT org_ids may be empty)
+        if user_id:
+            try:
+                from .orgs import get_org_store
 
-    await manager.connect(ws, user_id=user_id, org_ids=org_ids)
+                org_ids = [o.org_id for o in get_org_store().list_user_orgs(user_id)]
+            except Exception:
+                org_ids = app_metadata.get("org_ids", [])
+        else:
+            org_ids = app_metadata.get("org_ids", [])
+
+    is_admin = (tier == "platform_admin") if AUTH_ENABLED else True
+    await manager.connect(ws, user_id=user_id, org_ids=org_ids, is_admin=is_admin)
     try:
         while True:
             await ws.receive_text()
