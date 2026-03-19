@@ -517,8 +517,8 @@
 							</div>
 						{/if}
 
-						<!-- Log viewer -->
-						{#if viewingLogs === node.node_id}
+						<!-- Log viewer (org admin only) -->
+						{#if node.can_manage && viewingLogs === node.node_id}
 							<div class="node-logs">
 								{#if logLines.length === 0}
 									<p class="log-empty mono">No logs yet</p>
@@ -528,8 +528,8 @@
 							</div>
 						{/if}
 
-						<!-- Health graph -->
-						{#if viewingHealth === node.node_id}
+						<!-- Health graph (org admin only) -->
+						{#if node.can_manage && viewingHealth === node.node_id}
 							<div class="node-health">
 								{#if healthData.length < 2}
 									<p class="log-empty mono">Not enough data yet (need 2+ heartbeats)</p>

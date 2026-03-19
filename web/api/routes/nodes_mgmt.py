@@ -38,7 +38,7 @@ def _user_can_see_node(user: UserContext | None, node: NodeInfo) -> bool:
     if user.is_admin:
         return True
     if not node.org_id:
-        return True  # Unscoped nodes visible to all (backward compat)
+        return False  # Unscoped nodes only visible to platform admin
     store = get_org_store()
     return store.is_member(node.org_id, user.user_id)
 
@@ -85,31 +85,47 @@ def _save_node_config(node_id: str, node: NodeInfo) -> None:
 
 @router.get("")
 def list_managed_nodes(request: Request):
-    """List nodes visible to the current user, filtered by org membership."""
+    """List nodes visible to the current user, filtered by org membership.
+
+    Sensitive fields (host IP) are redacted for members who can't manage
+    the node. Only org admins/owners and platform admins see full details.
+    """
     user = _get_user(request)
     all_nodes = registry.list_nodes()
     visible = [n for n in all_nodes if _user_can_see_node(user, n)]
     manageable = {n.node_id for n in all_nodes if _user_can_manage_node(user, n)}
-    return [
-        {**n.to_dict(), "can_manage": n.node_id in manageable}
-        for n in visible
-    ]
+    result = []
+    for n in visible:
+        data = n.to_dict()
+        can_manage = n.node_id in manageable
+        data["can_manage"] = can_manage
+        if not can_manage:
+            # Redact infrastructure/operational details for read-only members.
+            # Members see: name, status, GPU names, busy state — enough to
+            # understand queue behavior. Not IPs, logs, or config.
+            data["host"] = "***"
+            data["shared_storage"] = None
+            data["capabilities"] = []
+            data["cpu_stats"] = {}
+            data["accepted_types"] = []
+        result.append(data)
+    return result
 
 
-# --- Read-only info ---
+# --- Operational info (require org admin) ---
 
 
 @router.get("/{node_id}/health")
 def get_node_health(node_id: str, request: Request):
-    """Get health history for a node."""
-    node = _require_node_access(request, node_id)
+    """Get health history for a node. Requires org admin."""
+    node = _require_node_access(request, node_id, manage=True)
     return {"history": node.health_history}
 
 
 @router.get("/{node_id}/logs")
 def get_node_logs(node_id: str, request: Request):
-    """Get recent log lines from a node."""
-    node = _require_node_access(request, node_id)
+    """Get recent log lines from a node. Requires org admin."""
+    node = _require_node_access(request, node_id, manage=True)
     return {"logs": node.recent_logs}
 
 
