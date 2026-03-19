@@ -88,6 +88,7 @@ class NodeRegisterRequest(BaseModel):
     vram_free_gb: float = 0.0
     capabilities: list[str] = []
     shared_storage: str | None = None
+    org_id: str | None = None
     accepted_types: list[str] = []
 
 
@@ -124,6 +125,7 @@ def register_node(req: NodeRegisterRequest):
         vram_free_gb=req.vram_free_gb,
         capabilities=req.capabilities,
         shared_storage=req.shared_storage,
+        org_id=req.org_id,
         accepted_types=req.accepted_types,
     )
     registry.register(info)

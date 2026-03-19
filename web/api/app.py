@@ -20,7 +20,7 @@ from .database import get_storage
 from .deps import get_queue, get_service
 from .metrics import router as metrics_router
 from .reaper import start_reaper
-from .routes import admin, auth, clips, jobs, nodes, orgs, preview, projects, system, upload
+from .routes import admin, auth, clips, jobs, nodes, nodes_mgmt, orgs, preview, projects, system, upload
 from .worker import start_worker
 from .ws import manager, websocket_endpoint
 
@@ -177,6 +177,7 @@ def create_app() -> FastAPI:
     app.include_router(preview.router)
     app.include_router(projects.router)
     app.include_router(nodes.router)
+    app.include_router(nodes_mgmt.router)
     app.include_router(upload.router)
     app.include_router(orgs.router)
     app.include_router(admin.router)

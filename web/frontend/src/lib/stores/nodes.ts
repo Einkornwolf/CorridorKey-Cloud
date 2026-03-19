@@ -33,6 +33,8 @@ export interface NodeInfo {
 	paused: boolean;
 	schedule: NodeSchedule;
 	accepted_types: string[];
+	org_id: string | null;
+	can_manage?: boolean;
 	cpu_stats: {
 		cpu_percent: number;
 		cpu_count: number;

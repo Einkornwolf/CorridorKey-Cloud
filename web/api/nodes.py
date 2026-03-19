@@ -81,6 +81,7 @@ class NodeInfo:
     last_heartbeat: float = field(default_factory=time.time)
     capabilities: list[str] = field(default_factory=list)  # ["cuda", "mlx", "cpu"]
     shared_storage: str | None = None  # path if node has shared storage mounted
+    org_id: str | None = None  # org this node belongs to (CRKY-53)
     paused: bool = False
     schedule: NodeSchedule = field(default_factory=NodeSchedule)
     # Empty list = accept all job types. Non-empty = only these types.
@@ -147,6 +148,7 @@ class NodeInfo:
             "last_heartbeat": self.last_heartbeat,
             "capabilities": self.capabilities,
             "shared_storage": self.shared_storage,
+            "org_id": self.org_id,
             "paused": self.paused,
             "schedule": self.schedule.to_dict(),
             "accepted_types": self.accepted_types,

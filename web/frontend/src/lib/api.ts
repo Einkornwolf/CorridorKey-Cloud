@@ -285,20 +285,20 @@ export const api = {
 			`${BASE}/api/preview/${encodeURIComponent(clipName)}/${passName}/${frame}`
 	},
 	nodes: {
-		list: () => request<import('$lib/stores/nodes').NodeInfo[]>('GET', '/api/nodes'),
-		remove: (nodeId: string) => request<unknown>('DELETE', `/api/nodes/${encodeURIComponent(nodeId)}`),
-		pause: (nodeId: string) => request<unknown>('POST', `/api/nodes/${encodeURIComponent(nodeId)}/pause`),
-		resume: (nodeId: string) => request<unknown>('POST', `/api/nodes/${encodeURIComponent(nodeId)}/resume`),
+		list: () => request<(import('$lib/stores/nodes').NodeInfo & { can_manage?: boolean })[]>('GET', '/api/farm'),
+		remove: (nodeId: string) => request<unknown>('DELETE', `/api/farm/${encodeURIComponent(nodeId)}`),
+		pause: (nodeId: string) => request<unknown>('POST', `/api/farm/${encodeURIComponent(nodeId)}/pause`),
+		resume: (nodeId: string) => request<unknown>('POST', `/api/farm/${encodeURIComponent(nodeId)}/resume`),
 		setSchedule: (nodeId: string, schedule: { enabled: boolean; start: string; end: string }) =>
-			request<unknown>('PUT', `/api/nodes/${encodeURIComponent(nodeId)}/schedule`, schedule),
+			request<unknown>('PUT', `/api/farm/${encodeURIComponent(nodeId)}/schedule`, schedule),
 		setAcceptedTypes: (nodeId: string, types: string[]) =>
-			request<unknown>('PUT', `/api/nodes/${encodeURIComponent(nodeId)}/accepted-types`, {
+			request<unknown>('PUT', `/api/farm/${encodeURIComponent(nodeId)}/accepted-types`, {
 				accepted_types: types
 			}),
 		getLogs: (nodeId: string) =>
-			request<{ logs: string[] }>('GET', `/api/nodes/${encodeURIComponent(nodeId)}/logs`),
+			request<{ logs: string[] }>('GET', `/api/farm/${encodeURIComponent(nodeId)}/logs`),
 		getHealth: (nodeId: string) =>
-			request<{ history: { ts: number; cpu: number; ram_used: number; ram_total: number }[] }>('GET', `/api/nodes/${encodeURIComponent(nodeId)}/health`)
+			request<{ history: { ts: number; cpu: number; ram_used: number; ram_total: number }[] }>('GET', `/api/farm/${encodeURIComponent(nodeId)}/health`)
 	},
 	system2: {
 		localGpus: () =>
