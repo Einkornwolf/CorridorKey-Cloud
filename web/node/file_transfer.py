@@ -167,19 +167,55 @@ class FileTransfer:
     def upload_directory(self, clip_name: str, pass_name: str, src_dir: str) -> int:
         """Upload all files in a directory as results.
 
+        Tries tar bundle upload first (single HTTP request), falls back
+        to per-file upload if bundle endpoint isn't available.
+
         Returns the number of files uploaded.
         """
         if not os.path.isdir(src_dir):
             return 0
 
-        files = sorted(os.listdir(src_dir))
-        count = 0
+        files = sorted(f for f in os.listdir(src_dir) if os.path.isfile(os.path.join(src_dir, f)))
+        if not files:
+            return 0
 
+        # Try bundle upload first
+        try:
+            count = self._upload_bundle(clip_name, pass_name, src_dir, files)
+            if count > 0:
+                return count
+        except Exception as e:
+            logger.debug(f"Bundle upload failed, falling back to per-file: {e}")
+
+        # Per-file fallback
+        count = 0
         for fname in files:
             fpath = os.path.join(src_dir, fname)
-            if os.path.isfile(fpath):
-                self.upload_file(clip_name, pass_name, fpath)
-                count += 1
+            self.upload_file(clip_name, pass_name, fpath)
+            count += 1
 
-        logger.info(f"Uploaded {count} files for {clip_name}/{pass_name}")
+        logger.info(f"Uploaded {count} files (per-file) for {clip_name}/{pass_name}")
+        return count
+
+    def _upload_bundle(self, clip_name: str, pass_name: str, src_dir: str, files: list[str]) -> int:
+        """Upload files as a tar stream (single HTTP request)."""
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w|") as tar:
+            for fname in files:
+                fpath = os.path.join(src_dir, fname)
+                tar.add(fpath, arcname=fname)
+        buf.seek(0)
+
+        url = self._url(f"{clip_name}/{pass_name}/bundle")
+        with _transfer_semaphore, httpx.Client(timeout=self.timeout, headers=self._headers) as client:
+            r = client.post(
+                url,
+                content=buf.read(),
+                headers={**self._headers, "Content-Type": "application/x-tar"},
+            )
+            r.raise_for_status()
+            data = r.json()
+            count = data.get("count", len(files))
+
+        logger.info(f"Uploaded {count} files (bundle) for {clip_name}/{pass_name}")
         return count

@@ -527,6 +527,51 @@ def download_clip_file(node_id: str, clip_name: str, pass_name: str, filename: s
     raise HTTPException(status_code=404, detail=f"File not found: {filename}")
 
 
+@router.post("/{node_id}/files/{clip_name}/{pass_name}/bundle")
+async def upload_result_bundle(node_id: str, clip_name: str, pass_name: str, request: Request):
+    """Upload multiple result files as a tar stream. Much faster than one-per-file."""
+    _OUTPUT_MAP = {
+        "fg": "Output/FG",
+        "matte": "Output/Matte",
+        "comp": "Output/Comp",
+        "processed": "Output/Processed",
+        "alpha": "AlphaHint",
+    }
+
+    subdir = _OUTPUT_MAP.get(pass_name)
+    if not subdir:
+        raise HTTPException(status_code=400, detail=f"Unknown output pass: {pass_name}")
+
+    service = get_service()
+    clips = service.scan_clips(_clips_mod._clips_dir)
+    clip = next((c for c in clips if c.name == clip_name), None)
+    if not clip:
+        raise HTTPException(status_code=404, detail=f"Clip '{clip_name}' not found")
+
+    target_dir = os.path.join(clip.root_path, subdir)
+    os.makedirs(target_dir, exist_ok=True)
+
+    # Read the tar stream from the request body
+    body = await request.body()
+    buf = io.BytesIO(body)
+    count = 0
+    try:
+        with tarfile.open(fileobj=buf, mode="r|") as tar:
+            for member in tar:
+                if member.isfile():
+                    # Validate path stays within target_dir
+                    dest = safe_join(target_dir, os.path.basename(member.name))
+                    extracted = tar.extractfile(member)
+                    if extracted:
+                        with open(dest, "wb") as f:
+                            f.write(extracted.read())
+                        count += 1
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid tar stream: {e}") from e
+
+    return {"status": "ok", "count": count}
+
+
 @router.post("/{node_id}/files/{clip_name}/{pass_name}/{filename}")
 async def upload_result_file(node_id: str, clip_name: str, pass_name: str, filename: str, file: UploadFile):
     """Upload a result file from a node. Used by nodes without shared storage."""
