@@ -1,0 +1,87 @@
+# CorridorKey Node Agent — HARDENED mode (CRKY-43)
+#
+# Blackbox execution environment for untrusted nodes. All frame I/O
+# happens in RAM (tmpfs). No persistent disk access except model weights.
+# Network restricted to the main server only.
+#
+# Use this for HTTP-transfer nodes on untrusted hardware.
+# Do NOT use with CK_SHARED_STORAGE (incompatible — use docker-compose.node.yml).
+#
+# Run:  docker compose -f deploy/docker-compose.node-hardened.yml up -d
+# Stop: docker compose -f deploy/docker-compose.node-hardened.yml down
+
+services:
+  corridorkey-node:
+    image: ghcr.io/jamesnyevrguy/corridorkey-node:stable
+    restart: unless-stopped
+
+    # Read-only root filesystem
+    read_only: true
+
+    # Drop all capabilities — GPU access comes from the device reservation
+    cap_drop:
+      - ALL
+
+    # Non-root user
+    user: "1000:1000"
+
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+    environment:
+      - OPENCV_IO_ENABLE_OPENEXR=1
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
+      - CK_MAIN_URL=${CK_MAIN_URL:?Set CK_MAIN_URL to the main server address}
+      - CK_NODE_NAME=${CK_NODE_NAME:-hardened-node}
+      - CK_NODE_GPUS=${CK_NODE_GPUS:-auto}
+      - CK_AUTH_TOKEN=${CK_AUTH_TOKEN:-}
+      - CK_NODE_HARDENED=true
+      # Temp directory for frame processing (must match tmpfs mount below)
+      - CK_TEMP_DIR=/tmp/ck-work
+      # No shared storage — HTTP transfer only
+      - CK_SHARED_STORAGE=
+
+    volumes:
+      # tmpfs for frame processing — RAM-only, nothing hits disk
+      # Size limit prevents OOM from large clips
+      - type: tmpfs
+        target: /tmp/ck-work
+        tmpfs:
+          size: ${CK_TMPFS_SIZE:-8589934592}  # 8GB default
+
+      # tmpfs for Python/system temp files (pip cache, etc.)
+      - type: tmpfs
+        target: /tmp
+        tmpfs:
+          size: 1073741824  # 1GB
+
+      # Model weights — persistent but read-only after initial download.
+      # First run: start without :ro to allow weight download.
+      # Subsequent runs: add :ro suffix for full lockdown.
+      - node-weights:/app/CorridorKeyModule/checkpoints
+      - node-weights-gvm:/app/gvm_core/weights
+      - node-weights-vm:/app/VideoMaMaInferenceModule/checkpoints/VideoMaMa
+
+    # Network restriction: only allow connections to the main server.
+    # In production, combine with a Docker network policy or iptables rules
+    # to block all outbound except CK_MAIN_URL.
+    # Example with Docker network:
+    #   networks:
+    #     restricted:
+    #       driver: bridge
+    #       internal: true  # no internet access
+
+volumes:
+  node-weights:
+  node-weights-gvm:
+  node-weights-vm:

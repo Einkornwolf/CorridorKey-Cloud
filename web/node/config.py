@@ -33,3 +33,7 @@ AUTH_TOKEN: str = _get("CK_AUTH_TOKEN", "")  # shared secret for node auth
 ACCEPTED_TYPES: str = _get("CK_NODE_ACCEPTED_TYPES", "")
 # Pre-load model into VRAM on startup (avoids cold-start delay on first job)
 PREWARM: bool = _get("CK_NODE_PREWARM", "true").lower() in ("true", "1", "yes")
+# Hardened mode (CRKY-43): all frame I/O through tmpfs, extra security
+HARDENED: bool = _get("CK_NODE_HARDENED", "false").lower() in ("true", "1", "yes")
+# Temp directory for frame processing. In hardened mode, this should be a tmpfs mount.
+TEMP_DIR: str = _get("CK_TEMP_DIR", "")

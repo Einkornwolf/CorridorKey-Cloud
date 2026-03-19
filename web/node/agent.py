@@ -250,7 +250,11 @@ class NodeAgent:
         frame_range = params.get("frame_range")
         fr = tuple(frame_range) if frame_range else None
 
-        base_dir = tempfile.mkdtemp(prefix=f"ck-node-{clip_name}-")
+        # Use configured temp dir (tmpfs in hardened mode) or system default
+        from . import config
+
+        temp_root = config.TEMP_DIR or None
+        base_dir = tempfile.mkdtemp(prefix=f"ck-node-{clip_name}-", dir=temp_root)
         clip_dir = os.path.join(base_dir, clip_name)
 
         # Build list of passes to download
@@ -302,7 +306,12 @@ class NodeAgent:
 
     def _cleanup_temp(self, clips_dir: str) -> None:
         """Remove temp directory after upload. Only deletes dirs we created."""
-        if not clips_dir.startswith(tempfile.gettempdir()):
+        from . import config
+
+        allowed_roots = [tempfile.gettempdir()]
+        if config.TEMP_DIR:
+            allowed_roots.append(config.TEMP_DIR)
+        if not any(clips_dir.startswith(r) for r in allowed_roots):
             return  # safety: don't delete non-temp paths
         try:
             shutil.rmtree(clips_dir)
