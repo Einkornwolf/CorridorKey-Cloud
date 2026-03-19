@@ -430,34 +430,6 @@ def list_clip_files(node_id: str, clip_name: str, pass_name: str):
     return {"directory": None, "files": [], "clip_root": clip.root_path}
 
 
-@router.get("/{node_id}/files/{clip_name}/{pass_name}/{filename}")
-def download_clip_file(node_id: str, clip_name: str, pass_name: str, filename: str):
-    """Download a single file from a clip pass. Used by nodes without shared storage."""
-    _PASS_MAP = {
-        "input": ["Frames", "Input"],
-        "alpha": ["AlphaHint"],
-        "mask": ["VideoMamaMaskHint"],
-        "source": ["Source"],
-    }
-
-    dirs = _PASS_MAP.get(pass_name)
-    if not dirs:
-        raise HTTPException(status_code=400, detail=f"Unknown pass: {pass_name}")
-
-    service = get_service()
-    clips = service.scan_clips(_clips_mod._clips_dir)
-    clip = next((c for c in clips if c.name == clip_name), None)
-    if not clip:
-        raise HTTPException(status_code=404, detail=f"Clip '{clip_name}' not found")
-
-    for d in dirs:
-        fpath = safe_join(clip.root_path, d, filename)
-        if os.path.isfile(fpath):
-            return FileResponse(fpath)
-
-    raise HTTPException(status_code=404, detail=f"File not found: {filename}")
-
-
 @router.get("/{node_id}/files/{clip_name}/{pass_name}/bundle")
 def download_clip_bundle(
     node_id: str,
@@ -525,6 +497,34 @@ def download_clip_bundle(
         media_type="application/x-tar",
         headers={"X-Tar-Directory": directory, "X-Tar-Count": str(len(files))},
     )
+
+
+@router.get("/{node_id}/files/{clip_name}/{pass_name}/{filename}")
+def download_clip_file(node_id: str, clip_name: str, pass_name: str, filename: str):
+    """Download a single file from a clip pass. Used by nodes without shared storage."""
+    _PASS_MAP = {
+        "input": ["Frames", "Input"],
+        "alpha": ["AlphaHint"],
+        "mask": ["VideoMamaMaskHint"],
+        "source": ["Source"],
+    }
+
+    dirs = _PASS_MAP.get(pass_name)
+    if not dirs:
+        raise HTTPException(status_code=400, detail=f"Unknown pass: {pass_name}")
+
+    service = get_service()
+    clips = service.scan_clips(_clips_mod._clips_dir)
+    clip = next((c for c in clips if c.name == clip_name), None)
+    if not clip:
+        raise HTTPException(status_code=404, detail=f"Clip '{clip_name}' not found")
+
+    for d in dirs:
+        fpath = safe_join(clip.root_path, d, filename)
+        if os.path.isfile(fpath):
+            return FileResponse(fpath)
+
+    raise HTTPException(status_code=404, detail=f"File not found: {filename}")
 
 
 @router.post("/{node_id}/files/{clip_name}/{pass_name}/{filename}")
