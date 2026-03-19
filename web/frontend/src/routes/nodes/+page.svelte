@@ -37,17 +37,17 @@
 
 	onMount(() => {
 		refreshNodes();
-		api.system2.localGpus().then((gpus) => (localGpus = gpus)).catch(() => {});
-		api.system2.localCpu().then((c) => (localCpu = c)).catch(() => {});
 		if (isAdmin) {
+			api.system2.localGpus().then((gpus) => (localGpus = gpus)).catch(() => {});
+			api.system2.localCpu().then((c) => (localCpu = c)).catch(() => {});
 			api.system2.getLocalGpu().then((r) => (localGpuEnabled = r.enabled)).catch(() => {});
 			api.system2.getClaimDelay().then((r) => (claimDelay = r.seconds)).catch(() => {});
 		}
 		const interval = setInterval(refreshNodes, 5000);
-		const cpuInterval = setInterval(() => {
+		const cpuInterval = isAdmin ? setInterval(() => {
 			api.system2.localCpu().then((c) => (localCpu = c)).catch(() => {});
-		}, 5000);
-		return () => { clearInterval(interval); clearInterval(cpuInterval); };
+		}, 5000) : null;
+		return () => { clearInterval(interval); if (cpuInterval) clearInterval(cpuInterval); };
 	});
 
 	function timeSince(ts: number): string {
@@ -247,7 +247,8 @@
 		<p class="subtitle">GPU processing, remote nodes, and scheduling</p>
 	</header>
 
-	<!-- Local GPU Processing -->
+	<!-- Local GPU Processing (platform admin only) -->
+	{#if isAdmin}
 	<section class="section">
 		<h2 class="section-title mono">LOCAL GPU PROCESSING</h2>
 		<div class="local-gpu-card">
@@ -334,6 +335,7 @@
 			{/if}
 		</div>
 	</section>
+	{/if}
 
 	<!-- Remote Nodes -->
 	<section class="section">

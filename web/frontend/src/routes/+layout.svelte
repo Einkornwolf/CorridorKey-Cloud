@@ -204,12 +204,19 @@
 		</div>
 
 		<div class="sidebar-bottom">
-			<VramMeter />
-			<div class="device-row">
-				<span class="device-dot" class:online={connected}></span>
-				<span class="device-label mono">{$device}</span>
-				<span class="conn-badge mono" class:live={connected}>{connected ? 'LIVE' : 'OFFLINE'}</span>
-			</div>
+			{#if !authEnabled || getStoredUser()?.tier === 'platform_admin'}
+				<VramMeter />
+				<div class="device-row">
+					<span class="device-dot" class:online={connected}></span>
+					<span class="device-label mono">{$device}</span>
+					<span class="conn-badge mono" class:live={connected}>{connected ? 'LIVE' : 'OFFLINE'}</span>
+				</div>
+			{:else}
+				<div class="device-row">
+					<span class="device-dot" class:online={connected}></span>
+					<span class="conn-badge mono" class:live={connected}>{connected ? 'CONNECTED' : 'OFFLINE'}</span>
+				</div>
+			{/if}
 			{#if authEnabled}
 				{@const user = getStoredUser()}
 				<div class="user-row">

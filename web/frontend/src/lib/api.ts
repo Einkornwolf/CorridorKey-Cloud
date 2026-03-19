@@ -298,7 +298,9 @@ export const api = {
 		getLogs: (nodeId: string) =>
 			request<{ logs: string[] }>('GET', `/api/farm/${encodeURIComponent(nodeId)}/logs`),
 		getHealth: (nodeId: string) =>
-			request<{ history: { ts: number; cpu: number; ram_used: number; ram_total: number }[] }>('GET', `/api/farm/${encodeURIComponent(nodeId)}/health`)
+			request<{ history: { ts: number; cpu: number; ram_used: number; ram_total: number }[] }>('GET', `/api/farm/${encodeURIComponent(nodeId)}/health`),
+		setVisibility: (nodeId: string, visibility: 'private' | 'shared') =>
+			request<unknown>('PUT', `/api/farm/${encodeURIComponent(nodeId)}/visibility`, { visibility })
 	},
 	system2: {
 		localGpus: () =>

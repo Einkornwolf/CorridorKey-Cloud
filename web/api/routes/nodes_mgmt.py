@@ -32,13 +32,17 @@ def _get_user(request: Request) -> UserContext | None:
 
 
 def _user_can_see_node(user: UserContext | None, node: NodeInfo) -> bool:
-    """Check if a user can see this node based on org membership."""
+    """Check if a user can see this node based on org membership and visibility."""
     if not AUTH_ENABLED or user is None:
         return True
     if user.is_admin:
         return True
     if not node.org_id:
         return False  # Unscoped nodes only visible to platform admin
+    # Shared nodes are visible to all authenticated users
+    if node.visibility == "shared":
+        return True
+    # Private nodes require org membership
     store = get_org_store()
     return store.is_member(node.org_id, user.user_id)
 
@@ -74,6 +78,7 @@ def _save_node_config(node_id: str, node: NodeInfo) -> None:
     configs = storage.get_setting("node_configs", {})
     configs[node_id] = {
         "paused": node.paused,
+        "visibility": node.visibility,
         "schedule": node.schedule.to_dict(),
         "accepted_types": node.accepted_types,
     }
@@ -186,6 +191,26 @@ def set_accepted_types(node_id: str, req: AcceptedTypesRequest, request: Request
     _save_node_config(node_id, node)
     manager.send_node_update(node.to_dict())
     return {"accepted_types": node.accepted_types}
+
+
+class SetVisibilityRequest(BaseModel):
+    visibility: str  # "private" or "shared"
+
+
+@router.put("/{node_id}/visibility")
+def set_node_visibility(node_id: str, req: SetVisibilityRequest, request: Request):
+    """Set whether a node is private (org-only) or shared (all users).
+
+    Requires org admin. Shared nodes are visible and usable by all
+    authenticated users, not just the owning org.
+    """
+    if req.visibility not in ("private", "shared"):
+        raise HTTPException(status_code=400, detail="Visibility must be 'private' or 'shared'")
+    node = _require_node_access(request, node_id, manage=True)
+    node.visibility = req.visibility
+    _save_node_config(node_id, node)
+    manager.send_node_update(node.to_dict())
+    return {"visibility": node.visibility}
 
 
 @router.delete("/{node_id}")

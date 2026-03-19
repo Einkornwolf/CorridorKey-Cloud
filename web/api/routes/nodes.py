@@ -58,6 +58,7 @@ def _restore_node_config(node: NodeInfo) -> None:
     cfg = configs.get(node.node_id)
     if cfg:
         node.paused = cfg.get("paused", False)
+        node.visibility = cfg.get("visibility", "private")
         sched = cfg.get("schedule", {})
         if sched:
             node.schedule = NodeSchedule(
