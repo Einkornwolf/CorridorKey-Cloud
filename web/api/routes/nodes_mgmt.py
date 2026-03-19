@@ -108,12 +108,19 @@ def list_managed_nodes(request: Request):
             org = org_store.get_org(n.org_id)
             org_names[n.org_id] = org.name if org else ""
 
+    # Load reputations (CRKY-30)
+    from ..node_reputation import get_all_reputations
+
+    rep_map = {r.node_id: r for r in get_all_reputations()}
+
     result = []
     for n in visible:
         data = n.to_dict()
         can_manage = n.node_id in manageable
         data["can_manage"] = can_manage
         data["org_name"] = org_names.get(n.org_id or "", "")
+        rep = rep_map.get(n.node_id)
+        data["reputation"] = rep.to_dict() if rep else None
         if not can_manage:
             # Redact infrastructure/operational details for read-only members.
             # Members see: name, status, GPU names, busy state — enough to

@@ -378,16 +378,24 @@ def report_job_result(node_id: str, req: JobResultRequest):
         import time
 
         node = registry.get_node(node_id)
-        if job.started_at and node and node.org_id:
-            elapsed = time.time() - job.started_at
-            if elapsed > 0:
-                from ..gpu_credits import add_contributed
+        elapsed = time.time() - job.started_at if job.started_at else 0
+        if elapsed > 0 and node and node.org_id:
+            from ..gpu_credits import add_contributed
 
-                add_contributed(node.org_id, elapsed)
-                logger.info(f"Credit: +{elapsed:.1f}s by node {node_id} -> org {node.org_id}")
+            add_contributed(node.org_id, elapsed)
+            logger.info(f"Credit: +{elapsed:.1f}s by node {node_id} -> org {node.org_id}")
+
+        # Update reputation (CRKY-30)
+        from ..node_reputation import record_job_completed
+
+        record_job_completed(node_id, job.total_frames, elapsed)
     else:
         queue.fail_job(job, req.error_message or "Unknown error")
         manager.send_job_status(job.id, JobStatus.FAILED.value, error=req.error_message, org_id=oid)
+        # Update reputation (CRKY-30)
+        from ..node_reputation import record_job_failed
+
+        record_job_failed(node_id)
 
     registry.set_idle(node_id)
 
