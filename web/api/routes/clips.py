@@ -6,9 +6,10 @@ import logging
 import os
 import shutil
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..deps import get_service
+from ..org_isolation import resolve_clips_dir
 from ..schemas import ClipAssetSchema, ClipListResponse, ClipSchema
 from ..tier_guard import require_member
 
@@ -50,24 +51,26 @@ def _clip_to_schema(clip) -> ClipSchema:
 
 
 @router.get("", response_model=ClipListResponse)
-def list_clips():
+def list_clips(request: Request):
+    clips_dir = resolve_clips_dir(request)
     service = get_service()
     try:
-        clips = service.scan_clips(_clips_dir)
+        clips = service.scan_clips(clips_dir)
     except Exception as e:
         logger.error(f"Clip scan failed: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
     return ClipListResponse(
         clips=[_clip_to_schema(c) for c in clips],
-        clips_dir=_clips_dir,
+        clips_dir=clips_dir,
     )
 
 
 @router.get("/{name}", response_model=ClipSchema)
-def get_clip(name: str):
+def get_clip(name: str, request: Request):
+    clips_dir = resolve_clips_dir(request)
     service = get_service()
     try:
-        clips = service.scan_clips(_clips_dir)
+        clips = service.scan_clips(clips_dir)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
     for clip in clips:
@@ -77,15 +80,16 @@ def get_clip(name: str):
 
 
 @router.delete("/{name}")
-def delete_clip(name: str):
+def delete_clip(name: str, request: Request):
     """Delete a clip and its entire project directory.
 
     Removes the clip's root_path. If this was the only clip in a v2 project,
     removes the entire project folder too.
     """
+    clips_dir = resolve_clips_dir(request)
     service = get_service()
     try:
-        clips = service.scan_clips(_clips_dir)
+        clips = service.scan_clips(clips_dir)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -98,7 +102,7 @@ def delete_clip(name: str):
         raise HTTPException(status_code=404, detail="Clip directory not found on disk")
 
     # Safety: ensure the path is inside the clips dir
-    abs_clips = os.path.abspath(_clips_dir)
+    abs_clips = os.path.abspath(clips_dir)
     abs_clip = os.path.abspath(clip_root)
     if not abs_clip.startswith(abs_clips + os.sep):
         raise HTTPException(status_code=403, detail="Clip path is outside the projects directory")
@@ -122,7 +126,7 @@ def delete_clip(name: str):
 
 
 @router.post("/{name}/move")
-def move_clip(name: str, target_project: str):
+def move_clip(name: str, target_project: str, request: Request):
     """Move a clip to a different project.
 
     The clip directory is physically moved into the target project's clips/ dir.
@@ -130,9 +134,10 @@ def move_clip(name: str, target_project: str):
     """
     from backend.project import is_v2_project, read_project_json, write_project_json
 
+    clips_dir = resolve_clips_dir(request)
     service = get_service()
     try:
-        clips = service.scan_clips(_clips_dir)
+        clips = service.scan_clips(clips_dir)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
@@ -141,7 +146,7 @@ def move_clip(name: str, target_project: str):
         raise HTTPException(status_code=404, detail=f"Clip '{name}' not found")
 
     # Find target project
-    target_dir = os.path.join(_clips_dir, target_project)
+    target_dir = os.path.join(clips_dir, target_project)
     if not os.path.isdir(target_dir) or not is_v2_project(target_dir):
         raise HTTPException(status_code=404, detail=f"Target project '{target_project}' not found")
 
@@ -152,7 +157,7 @@ def move_clip(name: str, target_project: str):
         raise HTTPException(status_code=409, detail=f"A clip named '{name}' already exists in the target project")
 
     # Safety checks
-    abs_root = os.path.abspath(_clips_dir)
+    abs_root = os.path.abspath(clips_dir)
     abs_src = os.path.abspath(clip.root_path)
     abs_dst = os.path.abspath(dest)
     if not abs_src.startswith(abs_root + os.sep) or not abs_dst.startswith(abs_root + os.sep):

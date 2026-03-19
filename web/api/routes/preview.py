@@ -12,7 +12,7 @@ import zipfile
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, Response
 
 from backend.frame_io import read_image_frame
@@ -20,6 +20,7 @@ from backend.natural_sort import natsorted
 from backend.project import is_image_file
 
 from ..deps import get_service
+from ..org_isolation import resolve_clips_dir
 from ..tier_guard import require_member
 
 logger = logging.getLogger(__name__)
@@ -52,9 +53,9 @@ _PASS_MAP = {
 }
 
 
-def _find_clip_root(clip_name: str) -> str | None:
+def _find_clip_root(clip_name: str, clips_dir: str | None = None) -> str | None:
     service = get_service()
-    clips = service.scan_clips(_clips_dir)
+    clips = service.scan_clips(clips_dir or _clips_dir)
     for clip in clips:
         if clip.name == clip_name:
             return clip.root_path
@@ -98,11 +99,11 @@ def _frame_to_png_bytes(img: np.ndarray) -> bytes:
 
 
 @router.get("/{clip_name}/{pass_name}/{frame:int}")
-def get_preview_frame(clip_name: str, pass_name: str, frame: int):
+def get_preview_frame(clip_name: str, pass_name: str, frame: int, request: Request):
     if pass_name not in _PASS_MAP:
         raise HTTPException(status_code=400, detail=f"Unknown pass: {pass_name}. Valid: {list(_PASS_MAP.keys())}")
 
-    clip_root = _find_clip_root(clip_name)
+    clip_root = _find_clip_root(clip_name, resolve_clips_dir(request))
     if clip_root is None:
         raise HTTPException(status_code=404, detail=f"Clip '{clip_name}' not found")
 
@@ -169,9 +170,9 @@ def _cache_key(clip_root: str, pass_name: str) -> str:
 
 
 @router.get("/{clip_name}/{pass_name}/video/progress")
-def get_video_progress(clip_name: str, pass_name: str, fps: int = 24):
+def get_video_progress(clip_name: str, pass_name: str, request: Request, fps: int = 24):
     """Check video encode progress. Returns status, current frame, total frames."""
-    clip_root = _find_clip_root(clip_name)
+    clip_root = _find_clip_root(clip_name, resolve_clips_dir(request))
     if clip_root is None:
         return {"status": "error", "detail": "Clip not found"}
 
@@ -190,7 +191,7 @@ def get_video_progress(clip_name: str, pass_name: str, fps: int = 24):
 
 
 @router.get("/{clip_name}/{pass_name}/video")
-def get_preview_video(clip_name: str, pass_name: str, fps: int = 24):
+def get_preview_video(clip_name: str, pass_name: str, request: Request, fps: int = 24):
     """Stitch frames into an MP4 for smooth browser playback. Cached."""
     if not _ffmpeg_available():
         raise HTTPException(status_code=503, detail="ffmpeg not available — cannot generate preview video")
@@ -198,7 +199,7 @@ def get_preview_video(clip_name: str, pass_name: str, fps: int = 24):
     if pass_name not in _PASS_MAP:
         raise HTTPException(status_code=400, detail=f"Unknown pass: {pass_name}")
 
-    clip_root = _find_clip_root(clip_name)
+    clip_root = _find_clip_root(clip_name, resolve_clips_dir(request))
     if clip_root is None:
         raise HTTPException(status_code=404, detail=f"Clip '{clip_name}' not found")
 
@@ -319,12 +320,12 @@ def get_preview_video(clip_name: str, pass_name: str, fps: int = 24):
 
 
 @router.get("/{clip_name}/{pass_name}/download")
-def download_pass(clip_name: str, pass_name: str):
+def download_pass(clip_name: str, pass_name: str, request: Request):
     """Download all frames for a pass as a ZIP file."""
     if pass_name not in _PASS_MAP:
         raise HTTPException(status_code=400, detail=f"Unknown pass: {pass_name}")
 
-    clip_root = _find_clip_root(clip_name)
+    clip_root = _find_clip_root(clip_name, resolve_clips_dir(request))
     if clip_root is None:
         raise HTTPException(status_code=404, detail=f"Clip '{clip_name}' not found")
 

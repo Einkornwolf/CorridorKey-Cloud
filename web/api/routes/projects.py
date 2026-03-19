@@ -7,7 +7,7 @@ import os
 import shutil
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from backend.clip_state import scan_project_clips
@@ -20,8 +20,9 @@ from backend.project import (
     write_project_json,
 )
 
+from ..org_isolation import resolve_clips_dir
 from ..tier_guard import require_member
-from .clips import _clip_to_schema, _clips_dir
+from .clips import _clip_to_schema
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/projects", tags=["projects"], dependencies=[Depends(require_member)])
@@ -44,9 +45,9 @@ class RenameProjectRequest(BaseModel):
     display_name: str
 
 
-def _scan_projects() -> list[ProjectSchema]:
+def _scan_projects(root: str | None = None) -> list[ProjectSchema]:
     """Scan the projects directory and return project info."""
-    root = _clips_dir or projects_root()
+    root = root or projects_root()
     if not os.path.isdir(root):
         return []
 
@@ -85,14 +86,14 @@ def _scan_projects() -> list[ProjectSchema]:
 
 
 @router.get("", response_model=list[ProjectSchema])
-def list_projects():
-    return _scan_projects()
+def list_projects(request: Request):
+    return _scan_projects(resolve_clips_dir(request))
 
 
 @router.post("", response_model=ProjectSchema)
-def create_project(req: CreateProjectRequest):
+def create_project_endpoint(req: CreateProjectRequest, request: Request):
     """Create a new empty project."""
-    root = _clips_dir or projects_root()
+    root = resolve_clips_dir(request)
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
 
     import re
@@ -125,9 +126,9 @@ def create_project(req: CreateProjectRequest):
 
 
 @router.patch("/{name}")
-def rename_project(name: str, req: RenameProjectRequest):
+def rename_project(name: str, req: RenameProjectRequest, request: Request):
     """Rename a project's display name."""
-    root = _clips_dir or projects_root()
+    root = resolve_clips_dir(request)
     project_dir = os.path.join(root, name)
     if not os.path.isdir(project_dir):
         raise HTTPException(status_code=404, detail=f"Project '{name}' not found")
@@ -137,9 +138,9 @@ def rename_project(name: str, req: RenameProjectRequest):
 
 
 @router.delete("/{name}")
-def delete_project(name: str):
+def delete_project(name: str, request: Request):
     """Delete a project and all its clips."""
-    root = _clips_dir or projects_root()
+    root = resolve_clips_dir(request)
     project_dir = os.path.join(root, name)
 
     if not os.path.isdir(project_dir):
