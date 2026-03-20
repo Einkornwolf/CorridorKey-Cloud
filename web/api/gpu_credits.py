@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Starter credits granted to new orgs on user approval (GPU-seconds).
 # Default 3600 = 1 hour. Set to 0 to disable.
-STARTER_CREDITS = float(os.environ.get("CK_STARTER_CREDITS", "3600"))
+STARTER_CREDITS = float(os.environ.get("CK_STARTER_CREDITS", "3600").strip())
 
 
 @dataclass

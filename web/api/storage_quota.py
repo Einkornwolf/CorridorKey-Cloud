@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 # Default quotas in bytes
 _GB = 1024**3
-DEFAULT_PERSONAL_QUOTA = int(os.environ.get("CK_QUOTA_PERSONAL_GB", "50")) * _GB
-DEFAULT_TEAM_QUOTA = int(os.environ.get("CK_QUOTA_TEAM_GB", "200")) * _GB
+DEFAULT_PERSONAL_QUOTA = int(os.environ.get("CK_QUOTA_PERSONAL_GB", "50").strip()) * _GB
+DEFAULT_TEAM_QUOTA = int(os.environ.get("CK_QUOTA_TEAM_GB", "200").strip()) * _GB
 
 
 def get_org_disk_usage(org_id: str) -> int:

@@ -20,8 +20,8 @@ import random
 
 logger = logging.getLogger(__name__)
 
-VERIFY_PERCENT = int(os.environ.get("CK_VERIFY_PERCENT", "5"))
-VERIFY_PSNR_THRESHOLD = float(os.environ.get("CK_VERIFY_PSNR_THRESHOLD", "40"))
+VERIFY_PERCENT = int(os.environ.get("CK_VERIFY_PERCENT", "5").strip())
+VERIFY_PSNR_THRESHOLD = float(os.environ.get("CK_VERIFY_PSNR_THRESHOLD", "40").strip())
 
 
 def should_verify_job() -> bool:

@@ -102,7 +102,7 @@ def _compute_status() -> StatusSnapshot:
     # Auth (GoTrue)
     import os
 
-    gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", ""))
+    gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "")).strip()
     if gotrue_url:
         try:
             import urllib.request

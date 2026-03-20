@@ -192,7 +192,7 @@ def prometheus_metrics():
     try:
         from backend.project import projects_root
 
-        clips_dir = os.environ.get("CK_CLIPS_DIR", "") or projects_root()
+        clips_dir = os.environ.get("CK_CLIPS_DIR", "").strip() or projects_root()
         if os.path.isdir(clips_dir):
             usage = shutil.disk_usage(clips_dir)
             free_gb = round(usage.free / (1024**3), 2)

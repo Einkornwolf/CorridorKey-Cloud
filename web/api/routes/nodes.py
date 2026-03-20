@@ -24,7 +24,7 @@ from ..ws import manager
 logger = logging.getLogger(__name__)
 
 # Legacy shared secret — set CK_AUTH_TOKEN for backward compatibility
-_AUTH_TOKEN = os.environ.get("CK_AUTH_TOKEN", "")
+_AUTH_TOKEN = os.environ.get("CK_AUTH_TOKEN", "").strip()
 
 
 def _check_node_auth(request: Request) -> None:

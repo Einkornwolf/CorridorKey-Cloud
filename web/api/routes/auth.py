@@ -132,7 +132,7 @@ def login_proxy(req: LoginRequest):
     """
     import urllib.request
 
-    gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "http://localhost:54324"))
+    gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "http://localhost:54324")).strip()
     body = json.dumps({"email": req.email, "password": req.password}).encode()
     try:
         gotrue_req = urllib.request.Request(
@@ -159,7 +159,7 @@ def refresh_proxy(request: Request):
     """Proxy token refresh through the server."""
     import urllib.request
 
-    gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "http://localhost:54324"))
+    gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "http://localhost:54324")).strip()
     try:
         refresh_token = request.headers.get("X-Refresh-Token", "")
         if not refresh_token:
@@ -192,7 +192,7 @@ def change_password(request: Request):
 
     from ..auth import _decode_jwt
 
-    gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "http://localhost:54324"))
+    gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "http://localhost:54324")).strip()
     auth_header = request.headers.get("Authorization", "")
     if not auth_header or not auth_header.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Authorization required")
@@ -317,8 +317,8 @@ def signup_with_invite(req: SignupRequest):
         raise HTTPException(status_code=409, detail="Invite token already used")
 
     # Create user via GoTrue admin API (use internal URL for server-to-server)
-    gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "http://localhost:54324"))
-    service_key = os.environ.get("CK_SUPABASE_SERVICE_KEY", "")
+    gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "http://localhost:54324")).strip()
+    service_key = os.environ.get("CK_SUPABASE_SERVICE_KEY", "").strip()
 
     if service_key:
         # Use admin API (bypasses DISABLE_SIGNUP)

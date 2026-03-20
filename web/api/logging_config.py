@@ -15,7 +15,7 @@ import logging
 import os
 import time
 
-LOG_FORMAT = os.environ.get("CK_LOG_FORMAT", "text").lower()
+LOG_FORMAT = os.environ.get("CK_LOG_FORMAT", "text").strip().lower()
 
 
 class JSONFormatter(logging.Formatter):

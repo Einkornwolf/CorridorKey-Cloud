@@ -31,11 +31,11 @@ logger = logging.getLogger(__name__)
 
 # Check if we should use Postgres
 _USE_POSTGRES = os.environ.get("CK_AUTH_ENABLED", "false").strip().lower() in ("true", "1", "yes")
-_PG_URL = os.environ.get("CK_DATABASE_URL", "")
+_PG_URL = os.environ.get("CK_DATABASE_URL", "").strip()
 
 # Connection pool parameters
-_POOL_MIN = int(os.environ.get("CK_DB_POOL_MIN", "2"))
-_POOL_MAX = int(os.environ.get("CK_DB_POOL_MAX", "10"))
+_POOL_MIN = int(os.environ.get("CK_DB_POOL_MIN", "2").strip())
+_POOL_MAX = int(os.environ.get("CK_DB_POOL_MAX", "10").strip())
 
 
 class StorageBackend:

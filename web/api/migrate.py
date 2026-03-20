@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def run_migrations() -> bool:
     """Run pending Alembic migrations. Returns True if successful."""
-    database_url = os.environ.get("CK_MIGRATION_URL", os.environ.get("CK_DATABASE_URL", ""))
+    database_url = os.environ.get("CK_MIGRATION_URL", os.environ.get("CK_DATABASE_URL", "")).strip()
     if not database_url:
         logger.debug("No CK_DATABASE_URL or CK_MIGRATION_URL — skipping migrations")
         return False

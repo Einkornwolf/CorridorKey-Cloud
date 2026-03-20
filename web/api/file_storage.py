@@ -326,24 +326,24 @@ def get_file_storage() -> FileStorage:
     if _storage is not None:
         return _storage
 
-    backend = os.environ.get("CK_STORAGE_BACKEND", "local").lower()
+    backend = os.environ.get("CK_STORAGE_BACKEND", "local").strip().lower()
 
     if backend == "s3":
-        bucket = os.environ.get("CK_S3_BUCKET", "")
+        bucket = os.environ.get("CK_S3_BUCKET", "").strip()
         if not bucket:
             raise RuntimeError("CK_S3_BUCKET is required when CK_STORAGE_BACKEND=s3")
         _storage = S3Storage(
             bucket=bucket,
-            prefix=os.environ.get("CK_S3_PREFIX", ""),
-            endpoint_url=os.environ.get("CK_S3_ENDPOINT_URL"),
-            region=os.environ.get("CK_S3_REGION", "us-east-1"),
-            access_key_id=os.environ.get("CK_S3_ACCESS_KEY_ID"),
-            secret_access_key=os.environ.get("CK_S3_SECRET_ACCESS_KEY"),
+            prefix=os.environ.get("CK_S3_PREFIX", "").strip(),
+            endpoint_url=os.environ.get("CK_S3_ENDPOINT_URL", "").strip() or None,
+            region=os.environ.get("CK_S3_REGION", "us-east-1").strip(),
+            access_key_id=os.environ.get("CK_S3_ACCESS_KEY_ID", "").strip() or None,
+            secret_access_key=os.environ.get("CK_S3_SECRET_ACCESS_KEY", "").strip() or None,
         )
     else:
         from backend.project import projects_root
 
-        base = os.environ.get("CK_CLIPS_DIR", "") or projects_root()
+        base = os.environ.get("CK_CLIPS_DIR", "").strip() or projects_root()
         _storage = LocalStorage(base)
 
     logger.info(f"File storage backend: {_storage.backend_type}")

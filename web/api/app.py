@@ -84,7 +84,7 @@ def _save_history_snapshot(queue) -> None:
 
 
 # Resolve clips directory from env or default to Projects/
-CLIPS_DIR = os.environ.get("CK_CLIPS_DIR", "")
+CLIPS_DIR = os.environ.get("CK_CLIPS_DIR", "").strip()
 
 
 def _resolve_clips_dir() -> str:
@@ -310,7 +310,7 @@ def create_app() -> FastAPI:
             healthy = False
 
         # GoTrue reachability
-        gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", ""))
+        gotrue_url = os.environ.get("CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "")).strip()
         if gotrue_url:
             try:
                 req = urllib.request.Request(f"{gotrue_url}/health", method="GET")

@@ -27,9 +27,9 @@ from .orgs import get_org_store
 logger = logging.getLogger(__name__)
 
 # Configurable ratio: 0 = disabled, 2.0 = can consume 2x contributed
-CREDIT_RATIO = float(os.environ.get("CK_CREDIT_RATIO", "2.0"))
+CREDIT_RATIO = float(os.environ.get("CK_CREDIT_RATIO", "2.0").strip())
 # Grace period: free GPU-seconds before enforcement (default 1 hour)
-CREDIT_GRACE = float(os.environ.get("CK_CREDIT_GRACE", "3600"))
+CREDIT_GRACE = float(os.environ.get("CK_CREDIT_GRACE", "3600").strip())
 
 
 def check_credit_balance(request: Request) -> None:

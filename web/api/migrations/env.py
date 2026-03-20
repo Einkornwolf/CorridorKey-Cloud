@@ -14,7 +14,7 @@ from sqlalchemy import create_engine
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 # Migration URL — prefer CK_MIGRATION_URL (supabase_admin) over CK_DATABASE_URL (postgres)
-DATABASE_URL = os.environ.get("CK_MIGRATION_URL", os.environ.get("CK_DATABASE_URL", ""))
+DATABASE_URL = os.environ.get("CK_MIGRATION_URL", os.environ.get("CK_DATABASE_URL", "").strip())
 
 if not DATABASE_URL:
     raise RuntimeError("CK_DATABASE_URL or CK_MIGRATION_URL environment variable is required for migrations")

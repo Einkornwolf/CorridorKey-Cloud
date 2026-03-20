@@ -12,8 +12,8 @@ import os
 
 logger = logging.getLogger(__name__)
 
-SENTRY_DSN = os.environ.get("CK_SENTRY_DSN", "")
-ENVIRONMENT = os.environ.get("CK_ENVIRONMENT", "development")
+SENTRY_DSN = os.environ.get("CK_SENTRY_DSN", "").strip()
+ENVIRONMENT = os.environ.get("CK_ENVIRONMENT", "development").strip()
 
 
 def init_sentry() -> None:
