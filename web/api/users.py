@@ -136,6 +136,15 @@ class UserStore:
 
         return UserRecord(**users[user_id])
 
+    def update_name(self, user_id: str, name: str) -> UserRecord | None:
+        """Update a user's display name."""
+        users = self._load_users()
+        if user_id not in users:
+            return None
+        users[user_id]["name"] = name
+        self._save_users(users)
+        return UserRecord(**users[user_id])
+
     def delete_user(self, user_id: str) -> bool:
         """Remove a user record."""
         users = self._load_users()

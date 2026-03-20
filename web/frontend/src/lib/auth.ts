@@ -11,6 +11,7 @@ const USER_KEY = 'ck:auth_user';
 export interface AuthUser {
 	id: string;
 	email: string;
+	name: string;
 	tier: string;
 	org_ids: string[];
 }
@@ -120,14 +121,17 @@ export function hasSession(): boolean {
 }
 
 function parseSession(data: Record<string, unknown>): AuthSession {
-	const appMeta = (data.user as Record<string, unknown>)?.app_metadata as Record<string, unknown> ?? {};
+	const userObj = (data.user as Record<string, unknown>) ?? {};
+	const appMeta = userObj.app_metadata as Record<string, unknown> ?? {};
+	const userMeta = userObj.user_metadata as Record<string, unknown> ?? {};
 	return {
 		access_token: data.access_token as string,
 		refresh_token: data.refresh_token as string,
 		expires_at: data.expires_at as number,
 		user: {
-			id: (data.user as Record<string, unknown>)?.id as string ?? '',
-			email: (data.user as Record<string, unknown>)?.email as string ?? '',
+			id: userObj.id as string ?? '',
+			email: userObj.email as string ?? '',
+			name: (userMeta.name as string) ?? '',
 			tier: (appMeta.tier as string) ?? 'pending',
 			org_ids: (appMeta.org_ids as string[]) ?? []
 		}

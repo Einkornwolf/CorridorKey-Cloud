@@ -107,6 +107,15 @@ class OrgStore:
             return None
         return Org(**data)
 
+    def rename_org(self, org_id: str, name: str) -> Org | None:
+        """Rename an org."""
+        orgs = self._load_orgs()
+        if org_id not in orgs:
+            return None
+        orgs[org_id]["name"] = name
+        self._save_orgs(orgs)
+        return Org(**orgs[org_id])
+
     def list_orgs(self) -> list[Org]:
         orgs = self._load_orgs()
         return [Org(**v) for v in orgs.values()]

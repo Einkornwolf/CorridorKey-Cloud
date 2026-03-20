@@ -65,14 +65,66 @@ def get_current_user_info(request: Request):
     try:
         claims = _decode_jwt(auth_header[7:])
         app_metadata = claims.get("app_metadata", {})
+        user_id = claims.get("sub", "")
+        # Include display name from user store
+        name = ""
+        if user_id:
+            user_store = get_user_store()
+            user_record = user_store.get_user(user_id)
+            if user_record:
+                name = user_record.name
         return {
             "authenticated": True,
             "tier": app_metadata.get("tier", "pending"),
             "email": claims.get("email", ""),
-            "user_id": claims.get("sub", ""),
+            "user_id": user_id,
+            "name": name,
         }
     except Exception:
         return {"authenticated": False, "tier": None}
+
+
+class UpdateProfileRequest(BaseModel):
+    name: str
+
+
+@router.patch("/me")
+def update_profile(req: UpdateProfileRequest, request: Request):
+    """Update the current user's display name."""
+    from ..auth import _decode_jwt
+
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Authentication required")
+    try:
+        claims = _decode_jwt(auth_header[7:])
+        user_id = claims.get("sub", "")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token") from None
+
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    name = req.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+    if len(name) > 100:
+        raise HTTPException(status_code=400, detail="Name too long (max 100 chars)")
+
+    user_store = get_user_store()
+    updated = user_store.update_name(user_id, name)
+    if not updated:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Update personal org name to match
+    from ..orgs import get_org_store
+
+    org_store = get_org_store()
+    personal = org_store.get_personal_org(user_id)
+    if personal:
+        org_store.rename_org(personal.org_id, f"{name}'s workspace")
+
+    return {"status": "updated", "name": name}
 
 
 @router.post("/login")

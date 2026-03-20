@@ -15,6 +15,12 @@
 	let orgs = $state<OrgInfo[]>([]);
 	let loading = $state(true);
 
+	// Display name
+	let editName = $state('');
+	let nameError = $state('');
+	let nameSuccess = $state('');
+	let savingName = $state(false);
+
 	// Password change
 	let currentPassword = $state('');
 	let newPassword = $state('');
@@ -41,6 +47,33 @@
 			orgs = res.orgs;
 		} catch {
 			orgs = [];
+		}
+	}
+
+	async function saveName() {
+		nameError = '';
+		nameSuccess = '';
+		const trimmed = editName.trim();
+		if (!trimmed) {
+			nameError = 'Name cannot be empty';
+			return;
+		}
+		savingName = true;
+		try {
+			await authFetch('/api/auth/me', {
+				method: 'PATCH',
+				body: JSON.stringify({ name: trimmed })
+			});
+			nameSuccess = 'Name updated';
+			// Update stored user
+			if (user) {
+				user.name = trimmed;
+				localStorage.setItem('ck:auth_user', JSON.stringify(user));
+			}
+		} catch (e) {
+			nameError = e instanceof Error ? e.message : 'Failed to update name';
+		} finally {
+			savingName = false;
 		}
 	}
 
@@ -116,6 +149,16 @@
 			goto('/login');
 			return;
 		}
+		editName = user.name || '';
+		// Fetch latest name from server
+		try {
+			const me = await authFetch('/api/auth/me');
+			if (me.name) {
+				editName = me.name;
+				user.name = me.name;
+				localStorage.setItem('ck:auth_user', JSON.stringify(user));
+			}
+		} catch { /* ignore */ }
 		await loadOrgs();
 		loading = false;
 	});
@@ -142,13 +185,35 @@
 					<span class="info-value">{user.email}</span>
 				</div>
 				<div class="info-row">
-					<span class="info-label mono">USER ID</span>
-					<span class="info-value mono">{user.id}</span>
-				</div>
-				<div class="info-row">
 					<span class="info-label mono">TIER</span>
 					<span class="tier-badge mono" data-tier={user.tier}>{user.tier}</span>
 				</div>
+			</div>
+		</div>
+
+		<!-- Display Name -->
+		<div class="section">
+			<h2 class="section-title mono">DISPLAY NAME</h2>
+			<div class="name-form">
+				{#if nameError}
+					<div class="form-error mono">{nameError}</div>
+				{/if}
+				{#if nameSuccess}
+					<div class="form-success mono">{nameSuccess}</div>
+				{/if}
+				<div class="name-row">
+					<input
+						type="text"
+						class="name-input"
+						bind:value={editName}
+						placeholder="Your display name"
+						maxlength="100"
+					/>
+					<button class="btn btn-primary mono" onclick={saveName} disabled={savingName}>
+						{savingName ? '...' : 'SAVE'}
+					</button>
+				</div>
+				<p class="name-hint mono">This name is shown in place of your email across the platform.</p>
 			</div>
 		</div>
 
@@ -299,6 +364,36 @@
 	.tier-badge[data-tier="contributor"] { background: rgba(0, 154, 218, 0.12); color: var(--secondary); }
 	.tier-badge[data-tier="org_admin"] { background: rgba(206, 147, 216, 0.12); color: var(--state-masked); }
 	.tier-badge[data-tier="platform_admin"] { background: rgba(255, 82, 82, 0.12); color: var(--state-error); }
+
+	.name-form {
+		max-width: 400px;
+	}
+
+	.name-row {
+		display: flex;
+		gap: var(--sp-2);
+		align-items: center;
+	}
+
+	.name-input {
+		flex: 1;
+		padding: 10px 12px;
+		background: var(--surface-3);
+		border: 1px solid var(--border);
+		border-radius: 6px;
+		color: var(--text-primary);
+		font-size: 14px;
+		outline: none;
+		font-family: inherit;
+	}
+	.name-input:focus { border-color: var(--accent); }
+	.name-input::placeholder { color: var(--text-tertiary); }
+
+	.name-hint {
+		font-size: 11px;
+		color: var(--text-tertiary);
+		margin-top: var(--sp-2);
+	}
 
 	.password-form {
 		display: flex;
