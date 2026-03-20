@@ -23,8 +23,8 @@ from starlette.responses import JSONResponse, Response
 logger = logging.getLogger(__name__)
 
 # Configuration from environment
-AUTH_ENABLED = os.environ.get("CK_AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
-JWT_SECRET = os.environ.get("CK_JWT_SECRET", "")
+AUTH_ENABLED = os.environ.get("CK_AUTH_ENABLED", "false").strip().lower() in ("true", "1", "yes")
+JWT_SECRET = os.environ.get("CK_JWT_SECRET", "").strip()
 JWT_ALGORITHMS = ["HS256"]
 
 # Paths that don't require authentication

@@ -14,8 +14,8 @@ from __future__ import annotations
 import os
 
 # Determine docs access mode
-_AUTH_ENABLED = os.environ.get("CK_AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
-_DOCS_PUBLIC_OVERRIDE = os.environ.get("CK_DOCS_PUBLIC", "")
+_AUTH_ENABLED = os.environ.get("CK_AUTH_ENABLED", "false").strip().lower() in ("true", "1", "yes")
+_DOCS_PUBLIC_OVERRIDE = os.environ.get("CK_DOCS_PUBLIC", "").strip()
 if _DOCS_PUBLIC_OVERRIDE:
     DOCS_PUBLIC = _DOCS_PUBLIC_OVERRIDE.lower() in ("true", "1", "yes")
 else:

@@ -30,7 +30,7 @@ from typing import Any, Generator
 logger = logging.getLogger(__name__)
 
 # Check if we should use Postgres
-_USE_POSTGRES = os.environ.get("CK_AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
+_USE_POSTGRES = os.environ.get("CK_AUTH_ENABLED", "false").strip().lower() in ("true", "1", "yes")
 _PG_URL = os.environ.get("CK_DATABASE_URL", "")
 
 # Connection pool parameters

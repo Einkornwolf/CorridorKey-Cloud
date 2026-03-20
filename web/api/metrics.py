@@ -33,7 +33,7 @@ from .deps import get_queue
 from .nodes import registry
 from .ws import manager
 
-METRICS_ENABLED = os.environ.get("CK_METRICS_ENABLED", "false").lower() in ("true", "1", "yes")
+METRICS_ENABLED = os.environ.get("CK_METRICS_ENABLED", "false").strip().lower() in ("true", "1", "yes")
 
 router = APIRouter(tags=["metrics"])
 
