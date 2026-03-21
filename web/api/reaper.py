@@ -21,21 +21,28 @@ _REAP_INTERVAL = 30  # seconds
 
 
 def _reap_once(queue: GPUJobQueue) -> None:
-    """Check for orphaned jobs and requeue them."""
-    # Check current running job
-    current = queue.current_job
-    if current and current.status == JobStatus.RUNNING and current.claimed_by:
-        claimer = current.claimed_by
-        if claimer == "local":
-            return  # local jobs are managed by the worker thread
+    """Check for orphaned jobs and requeue them.
 
-        node = registry.get_node(claimer)
+    Scans ALL running jobs (not just the first) to handle multi-GPU
+    nodes that may have multiple jobs in flight when they die.
+    """
+    for job in list(queue.running_jobs):
+        if job.status != JobStatus.RUNNING or not job.claimed_by:
+            continue
+        if job.claimed_by == "local":
+            continue  # local jobs are managed by the worker thread
+
+        node = registry.get_node(job.claimed_by)
         if node is None or not node.is_alive:
-            logger.warning(f"Reaping orphan job [{current.id}]: node '{claimer}' is dead, requeuing")
-            queue.requeue_job(current)
-            manager.send_job_status(current.id, JobStatus.QUEUED.value)
+            logger.warning(f"Reaping orphan job [{job.id}]: node '{job.claimed_by}' is dead, requeuing")
+            queue.requeue_job(job)
+            manager.send_job_status(job.id, JobStatus.QUEUED.value, org_id=job.org_id)
+            # Ding the node's reputation for dropping a job
+            from .node_reputation import record_job_failed
+
+            record_job_failed(job.claimed_by)
             if node:
-                registry.set_idle(claimer)
+                registry.set_idle(job.claimed_by)
 
 
 def reaper_loop(queue: GPUJobQueue, stop_event: threading.Event) -> None:
