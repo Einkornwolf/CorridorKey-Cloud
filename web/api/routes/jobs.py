@@ -281,18 +281,17 @@ def submit_sharded_inference(req: ShardedInferenceRequest, request: Request):
 
         # Create shard group with proportional frame distribution
         group_id = uuid.uuid4().hex[:8]
-        weights = gpu_weights[:num_shards]
-        total_weight = sum(weights)
-        # Distribute frames proportionally to GPU VRAM
+        # Distribute frames evenly — inference is compute-bound, not VRAM-bound.
+        # A 24GB card and a 96GB card process at the same speed per frame.
         shard_ranges = []
+        base = frame_count // num_shards
+        remainder = frame_count % num_shards
         cursor = 0
-        for i, w in enumerate(weights):
-            if i == num_shards - 1:
-                shard_ranges.append((cursor, frame_count))
-            else:
-                frames = max(1, round(frame_count * w / total_weight))
-                shard_ranges.append((cursor, min(cursor + frames, frame_count)))
-                cursor += frames
+        for i in range(num_shards):
+            # Spread remainder across first N shards (each gets +1 frame)
+            size = base + (1 if i < remainder else 0)
+            shard_ranges.append((cursor, cursor + size))
+            cursor += size
 
         for i, (start, end) in enumerate(shard_ranges):
             job = GPUJob(
