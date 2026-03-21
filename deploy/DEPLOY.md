@@ -130,57 +130,224 @@ This creates the first `platform_admin` user via GoTrue's admin API, bypassing t
 
 ## Docker Swarm Deployment
 
-Swarm handles env vars differently from regular Compose. Key differences:
+The `prod-up.sh` and `prod-down.sh` scripts use `docker compose`, not Swarm.
+Swarm uses `docker stack deploy` which handles env vars, volumes, and
+networking differently. This section covers the gotchas.
 
-### Use `env_file:` in the service definition
+### Deploying to Swarm
 
-`--env-file` on the CLI does variable **substitution** in the compose file. To get variables **into the container**, use `env_file:` inside the service:
+```bash
+# 1. Prepare compose for Swarm
+#    Swarm doesn't support --env-file on docker stack deploy.
+#    Add env_file: to each service in your compose file instead.
+
+# 2. Pull images first (Swarm doesn't auto-pull)
+docker pull supabase/postgres:15.6.1.143
+docker pull supabase/gotrue:v2.170.0
+docker pull ghcr.io/jamesnyevrguy/corridorkey-web:cloud
+
+# 3. Deploy
+docker stack deploy -c docker-compose.dev.yml corridorkey
+```
+
+### Swarm Compose Modifications
+
+You'll need to modify the compose files for Swarm compatibility.
+Key changes:
+
+#### 1. Use `env_file:` instead of `--env-file`
+
+`--env-file` on the CLI does variable **substitution** in the compose
+file at parse time. `env_file:` inside a service loads variables
+**directly into the container** at runtime. Swarm needs the latter:
 
 ```yaml
 services:
   corridorkey-web:
     env_file:
-      - .env
+      - .env                    # loads ALL vars into container
     environment:
-      # Swarm prefers mapping format over list format
-      CK_CLIPS_DIR: /app/Projects
+      CK_CLIPS_DIR: /app/Projects  # overrides/additions
 ```
 
-### Use mapping format for environment
+#### 2. Use mapping format for `environment:`
 
 ```yaml
-# ✅ Works in Swarm
+# ✅ Works in Swarm — mapping format
 environment:
   CK_AUTH_ENABLED: ${CK_AUTH_ENABLED}
+  GOTRUE_JWT_SECRET: ${JWT_SECRET}
 
-# ❌ Can break in Swarm
+# ❌ Can break in Swarm — list format with defaults
 environment:
   - CK_AUTH_ENABLED=${CK_AUTH_ENABLED:-false}
+  - GOTRUE_JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET}
 ```
 
-### Database volumes
+The list format with `:-` defaults and `:?` error syntax doesn't
+always work in Swarm's variable substitution.
 
-- Use **local volumes** for Postgres, not NFS. Databases on NFS have fsync/lock issues.
-- Swarm volumes survive `docker stack rm`. To truly reset the DB:
-  ```bash
-  docker stack rm mystack
-  docker volume ls | grep db
-  docker volume rm mystack_supabase-db-data
-  ```
-- The Postgres init scripts only run on a **fresh volume**. If you change `POSTGRES_PASSWORD` after first init, you must nuke the volume.
+#### 3. Remove `build:` directives
 
-### Troubleshooting: Role passwords not set
+Swarm doesn't build images — it only pulls. Replace `build:` with
+`image:` pointing to a pre-built image:
 
-If GoTrue fails with `password authentication failed for supabase_auth_admin`, the `POSTGRES_PASSWORD` didn't propagate during DB init. Fix:
+```yaml
+# ❌ Swarm can't build
+build:
+  context: ..
+  dockerfile: web/Dockerfile.web
+
+# ✅ Use pre-built image
+image: ghcr.io/jamesnyevrguy/corridorkey-web:cloud
+```
+
+Build and push the image separately:
+```bash
+docker build -t ghcr.io/jamesnyevrguy/corridorkey-web:cloud -f web/Dockerfile.web .
+docker push ghcr.io/jamesnyevrguy/corridorkey-web:cloud
+```
+
+#### 4. Remove `depends_on:` with `condition:`
+
+Swarm ignores `depends_on` conditions. Services start in parallel.
+Use healthchecks and restart policies instead — services will retry
+until dependencies are ready.
+
+### Database Volumes in Swarm
+
+**Use local volumes for Postgres, not NFS.** Databases on NFS have
+fsync issues, stale file handles, and lock contention that cause
+init scripts to fail or data corruption.
+
+```yaml
+volumes:
+  supabase-db-data:
+    driver: local   # local disk, NOT NFS
+```
+
+NFS is fine for project files (`CK_PROJECTS_DIR`) and model weights.
+
+**Swarm volumes survive `docker stack rm`.** To truly reset the DB:
 
 ```bash
-docker exec <postgres_container> psql -U supabase_admin -d corridorkey -c "
-  ALTER ROLE supabase_auth_admin WITH PASSWORD '<POSTGRES_PASSWORD>';
-  ALTER ROLE authenticator WITH PASSWORD '<POSTGRES_PASSWORD>';
-"
+docker stack rm corridorkey
+sleep 10                          # wait for containers to die
+docker volume ls | grep db        # find the volume
+docker volume rm corridorkey_supabase-db-data
+docker stack deploy ...           # redeploy — init scripts will run
 ```
 
-Then restart GoTrue.
+The `sleep` matters — if the Postgres container hasn't fully stopped,
+it recreates the data directory before your `rm` takes effect.
+
+**Init scripts only run on a fresh volume.** If you see
+`PostgreSQL Database directory appears to contain a database; Skipping initialization`,
+the volume has stale data. Nuke it.
+
+### Troubleshooting: Role Passwords Not Set
+
+If GoTrue fails with `password authentication failed for supabase_auth_admin`,
+the `POSTGRES_PASSWORD` env var didn't reach the DB container during init.
+This is common in Swarm because env delivery is less predictable.
+
+**Quick fix** — set passwords manually after init:
+
+```bash
+docker exec $(docker ps -q -f name=supabase-db) \
+  psql -U supabase_admin -d corridorkey -c "
+    ALTER ROLE supabase_auth_admin WITH PASSWORD 'YOUR_POSTGRES_PASSWORD';
+    ALTER ROLE authenticator WITH PASSWORD 'YOUR_POSTGRES_PASSWORD';
+  "
+```
+
+Then restart GoTrue:
+```bash
+docker service update --force corridorkey_supabase-auth
+```
+
+**Permanent fix** — ensure `POSTGRES_PASSWORD` is in `env_file:` for
+the `supabase-db` service, not just in the `environment:` mapping.
+
+### Troubleshooting: Images Not Found After Prune
+
+`docker system prune` removes unused images. Swarm's `docker stack deploy`
+doesn't auto-pull — it expects images to be local. After a prune:
+
+```bash
+# Re-pull all images before redeploying
+docker pull supabase/postgres:15.6.1.143
+docker pull supabase/gotrue:v2.170.0
+docker pull postgrest/postgrest:v12.2.3
+docker pull ghcr.io/jamesnyevrguy/corridorkey-web:cloud
+```
+
+### Example: Minimal Swarm-Compatible Compose
+
+```yaml
+# docker-compose.swarm.yml — adapted for docker stack deploy
+version: "3.8"
+
+services:
+  supabase-db:
+    image: supabase/postgres:15.6.1.143
+    env_file: [.env]
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: corridorkey
+    volumes:
+      - supabase-db-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/99-corridorkey.sql:ro
+    deploy:
+      restart_policy:
+        condition: any
+
+  supabase-auth:
+    image: supabase/gotrue:v2.170.0
+    env_file: [.env]
+    environment:
+      GOTRUE_API_HOST: "0.0.0.0"
+      GOTRUE_API_PORT: "9999"
+      GOTRUE_DB_DRIVER: postgres
+      GOTRUE_DB_DATABASE_URL: postgres://supabase_auth_admin:${POSTGRES_PASSWORD}@supabase-db:5432/corridorkey
+      GOTRUE_JWT_SECRET: ${JWT_SECRET}
+      GOTRUE_JWT_AUD: authenticated
+      GOTRUE_JWT_DEFAULT_GROUP_NAME: authenticated
+      GOTRUE_DISABLE_SIGNUP: "true"
+      GOTRUE_MAILER_AUTOCONFIRM: "true"
+      GOTRUE_SITE_URL: ${SITE_URL:-http://localhost:3000}
+    deploy:
+      restart_policy:
+        condition: any
+
+  corridorkey-web:
+    image: ghcr.io/jamesnyevrguy/corridorkey-web:cloud
+    env_file: [.env]
+    environment:
+      OPENCV_IO_ENABLE_OPENEXR: "1"
+      CK_CLIPS_DIR: /app/Projects
+      CK_GOTRUE_INTERNAL_URL: http://supabase-auth:9999
+      CK_DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@supabase-db:5432/corridorkey
+      CK_MIGRATION_URL: postgresql://supabase_admin:${POSTGRES_PASSWORD}@supabase-db:5432/corridorkey
+    ports:
+      - "3000:3000"
+    volumes:
+      - projects:/app/Projects
+    deploy:
+      restart_policy:
+        condition: any
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  supabase-db-data:
+    driver: local
+  projects:
+```
 
 ## Monitoring Setup
 
