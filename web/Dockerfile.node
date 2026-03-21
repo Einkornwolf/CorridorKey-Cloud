@@ -25,7 +25,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
+# Install Python dependencies (as root, before copying source)
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --extra cuda --no-install-project
@@ -40,18 +40,18 @@ COPY BiRefNetModule/ BiRefNetModule/
 COPY web/__init__.py web/__init__.py
 COPY web/shared/ web/shared/
 COPY web/node/ web/node/
+COPY README.md ./
 
-# Ensure checkpoint dirs exist and are owned by nodeuser
+# Install the project itself (still as root)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --extra cuda
+
+# Create dirs and transfer ownership AFTER all installs are done
 RUN mkdir -p CorridorKeyModule/checkpoints \
     gvm_core/weights \
     VideoMaMaInferenceModule/checkpoints/VideoMaMa \
     /tmp/ck-work && \
     chown -R nodeuser:nodeuser /app /tmp/ck-work
-
-# Install the project itself
-COPY README.md ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --extra cuda
 
 # Run as non-root
 USER nodeuser
@@ -61,4 +61,5 @@ ENV CK_NODE_NAME=docker-node
 ENV CK_NODE_GPUS=auto
 ENV CK_TEMP_DIR=/tmp/ck-work
 
-CMD ["uv", "run", "python", "-m", "web.node"]
+# Use the venv python directly — don't let uv try to sync/modify the venv
+CMD ["/app/.venv/bin/python", "-m", "web.node"]
