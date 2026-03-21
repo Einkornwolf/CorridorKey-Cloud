@@ -155,11 +155,11 @@ def list_jobs(request: Request):
         user_org_ids = {o.org_id for o in get_org_store().list_user_orgs(user.user_id)}
 
     def _visible(job):
-        """Filter jobs by org — admins see all, members see their org's jobs."""
+        """Filter jobs by org — admins see all, members see their org's jobs only."""
         if not user or user.is_admin:
             return True
         if not job.org_id:
-            return True  # Legacy jobs with no org visible to all
+            return False  # Jobs without an org are hidden from non-admins
         return job.org_id in user_org_ids
 
     running = [j for j in queue.running_jobs if _visible(j)]

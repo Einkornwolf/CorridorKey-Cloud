@@ -61,6 +61,10 @@
 	});
 
 	async function openSetupGuide() {
+		if (showSetupGuide) {
+			showSetupGuide = false;
+			return;
+		}
 		showSetupGuide = true;
 		try {
 			const [setup, orgsRes, tokensRes] = await Promise.all([
@@ -532,9 +536,6 @@ docker compose -f deploy/docker-compose.node-hardened.yml up -d
 							<span class="node-name">{node.name}</span>
 							{#if node.org_name}
 								<span class="node-org mono">{node.org_name}</span>
-							{/if}
-							{#if node.host !== '***'}
-								<span class="node-host mono">{node.host}</span>
 							{/if}
 							{#if node.can_manage}
 								<button

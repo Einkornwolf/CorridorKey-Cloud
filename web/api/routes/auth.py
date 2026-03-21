@@ -62,16 +62,20 @@ def get_current_user_info(request: Request):
         claims = _decode_jwt(auth_header[7:])
         app_metadata = claims.get("app_metadata", {})
         user_id = claims.get("sub", "")
-        # Include display name from user store
+        # Read tier and name from user store (not JWT) — the user store
+        # is updated immediately on approval, while the JWT may be stale
+        # until the next token refresh from GoTrue.
         name = ""
+        tier = app_metadata.get("tier", "pending")
         if user_id:
             user_store = get_user_store()
             user_record = user_store.get_user(user_id)
             if user_record:
                 name = user_record.name
+                tier = user_record.tier
         return {
             "authenticated": True,
-            "tier": app_metadata.get("tier", "pending"),
+            "tier": tier,
             "email": claims.get("email", ""),
             "user_id": user_id,
             "name": name,
