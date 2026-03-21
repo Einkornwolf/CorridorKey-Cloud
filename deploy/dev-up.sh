@@ -9,7 +9,13 @@
 set -e
 cd "$(dirname "$0")"
 
-COMPOSE="docker compose -f docker-compose.dev.yml --env-file .env --env-file .env.supabase"
+# Single .env file contains all config (CK + Supabase).
+# Legacy: also loads .env.supabase if it exists for backward compat.
+if [ -f .env.supabase ]; then
+  COMPOSE="docker compose -f docker-compose.dev.yml --env-file .env --env-file .env.supabase"
+else
+  COMPOSE="docker compose -f docker-compose.dev.yml --env-file .env"
+fi
 
 # Bring down existing containers first
 $COMPOSE down --remove-orphans 2>/dev/null || true
