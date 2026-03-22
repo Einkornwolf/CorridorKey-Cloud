@@ -65,6 +65,17 @@ def _job_to_schema(job: GPUJob) -> JobSchema:
         node = registry.get_node(claimed)
         claimed = node.name if node else claimed
 
+    # Compute duration and fps
+    duration = 0.0
+    fps = 0.0
+    if job.started_at > 0:
+        import time
+
+        end = job.completed_at if job.completed_at > job.started_at else time.time()
+        duration = round(end - job.started_at, 1)
+        if job.current_frame > 0 and duration > 0:
+            fps = round(job.current_frame / duration, 2)
+
     return JobSchema(
         id=job.id,
         job_type=job.job_type.value,
@@ -75,6 +86,9 @@ def _job_to_schema(job: GPUJob) -> JobSchema:
         error_message=job.error_message,
         claimed_by=claimed,
         started_at=job.started_at,
+        completed_at=job.completed_at,
+        duration_seconds=duration,
+        fps=fps,
         priority=job.priority,
         shard_group=job.shard_group,
         shard_index=job.shard_index,
@@ -352,9 +366,10 @@ def submit_gvm(req: GVMJobRequest, request: Request):
     """Generate alpha hints using Generative Video Matting.
 
     Modes:
-    - speed: batch_size=1, can be sharded across nodes (default)
-    - quality: batch_size=8, temporal coherence, single node
-    - quality_sharded: batch_size=8, sharded with overlap frames
+    - speed: batch_size=1, sharded across available nodes (default)
+    - quality: batch_size=8, temporal coherence, single node only
+    - quality_sharded: batch_size=8, temporal coherence, sharded across
+      nodes with overlap frames at boundaries
     """
     valid_modes = ("speed", "quality", "quality_sharded")
     if req.gvm_mode not in valid_modes:
@@ -370,7 +385,7 @@ def submit_gvm(req: GVMJobRequest, request: Request):
     for clip_name in req.clip_names:
         gvm_params = {"gvm_mode": req.gvm_mode, "batch_size": batch_size}
 
-        # Sharding for speed mode or quality_sharded mode
+        # Sharding for speed and quality_sharded modes
         if req.gvm_mode in ("speed", "quality_sharded"):
             from ..org_isolation import resolve_clips_dir
 
@@ -390,20 +405,20 @@ def submit_gvm(req: GVMJobRequest, request: Request):
             ]
             available += len(online_nodes)
 
-            # Overlap frames for quality_sharded (none for speed)
+            # Overlap frames for temporal coherence at shard boundaries
             overlap = 8 if req.gvm_mode == "quality_sharded" else 0
-            min_shard = max(20, overlap * 3)  # don't shard below this
+            min_shard = max(20, overlap * 3)
 
             if available > 1 and frame_count > min_shard:
                 num_shards = min(available, frame_count // min_shard)
                 if num_shards > 1:
                     group_id = uuid.uuid4().hex[:8]
-                    # Even distribution with overlap
                     base = frame_count // num_shards
                     remainder = frame_count % num_shards
                     cursor = 0
                     for i in range(num_shards):
                         size = base + (1 if i < remainder else 0)
+                        # Add overlap at boundaries for quality_sharded
                         start = max(0, cursor - overlap) if i > 0 else cursor
                         end = min(frame_count, cursor + size + overlap) if i < num_shards - 1 else cursor + size
                         job = GPUJob(
@@ -412,9 +427,6 @@ def submit_gvm(req: GVMJobRequest, request: Request):
                             params={
                                 **gvm_params,
                                 "frame_range": [start, end],
-                                "overlap": overlap,
-                                "shard_start": cursor,
-                                "shard_end": cursor + size,
                             },
                             shard_group=group_id,
                             shard_index=i,

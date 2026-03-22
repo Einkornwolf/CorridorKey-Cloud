@@ -6,6 +6,16 @@
 	import { refreshJobs } from '$lib/stores/jobs';
 
 	let { job, showCancel = false, queueIndex = -1 }: { job: Job; showCancel?: boolean; queueIndex?: number } = $props();
+
+	function formatDuration(seconds: number): string {
+		if (seconds <= 0) return '—';
+		if (seconds < 60) return `${seconds.toFixed(1)}s`;
+		const m = Math.floor(seconds / 60);
+		const s = Math.round(seconds % 60);
+		if (m < 60) return `${m}m ${s}s`;
+		const h = Math.floor(m / 60);
+		return `${h}h ${m % 60}m`;
+	}
 	let isQueued = $derived(job.status === 'queued');
 
 	const typeLabels: Record<string, string> = {
@@ -87,6 +97,23 @@
 		<span class="job-clip">{job.clip_name}</span>
 		{#if isRunning}
 			<ProgressBar current={job.current_frame} total={job.total_frames} startedAt={job.started_at > 0 ? job.started_at * 1000 : null} />
+			<div class="job-stats mono">
+				<span>{job.current_frame}/{job.total_frames} frames</span>
+				<span class="stat-sep">&bull;</span>
+				<span>{job.fps} fps</span>
+				<span class="stat-sep">&bull;</span>
+				<span>{formatDuration(job.duration_seconds)}</span>
+			</div>
+		{:else if job.status === 'completed'}
+			<div class="job-stats mono">
+				<span class="job-status" style="color: {statusColor}">COMPLETED</span>
+				<span class="stat-sep">&bull;</span>
+				<span>{job.total_frames} frames</span>
+				<span class="stat-sep">&bull;</span>
+				<span>{job.fps} fps</span>
+				<span class="stat-sep">&bull;</span>
+				<span>{formatDuration(job.duration_seconds)}</span>
+			</div>
 		{:else}
 			<span class="job-status mono" style="color: {statusColor}">{job.status.toUpperCase()}</span>
 		{/if}
@@ -193,6 +220,20 @@
 		font-size: 10px;
 		letter-spacing: 0.06em;
 		font-weight: 500;
+	}
+
+	.job-stats {
+		display: flex;
+		align-items: center;
+		gap: var(--sp-1);
+		font-size: 10px;
+		color: var(--text-tertiary);
+		flex-wrap: wrap;
+	}
+
+	.stat-sep {
+		opacity: 0.3;
+		font-size: 8px;
 	}
 
 	.job-actions {

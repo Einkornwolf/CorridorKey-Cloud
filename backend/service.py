@@ -828,10 +828,6 @@ class CorridorKeyService:
 
     # --- GVM Alpha Generation ---
 
-    # GVM concurrency: how many chunks to process in parallel on one GPU.
-    # Set via CK_GVM_CONCURRENCY env var. Default 1 (sequential).
-    _gvm_concurrency = int(os.environ.get("CK_GVM_CONCURRENCY", "1").strip())
-
     # GVM batch size: frames per batch. 1 = per-frame (fast, shardable).
     # Higher = temporal coherence (less flicker) but slower and needs more VRAM.
     # Must be even if > 1 (GVM pipeline requirement).
@@ -881,17 +877,10 @@ class CorridorKeyService:
             input_path, temp_dir = self._subset_frames(input_path, frame_range)
 
         try:
-            concurrency = self._gvm_concurrency
-            if concurrency > 1 and is_sequence and not frame_range:
-                self._run_gvm_parallel(
-                    gvm, clip, input_path, alpha_dir, concurrency,
-                    job, on_progress, on_warning, effective_batch,
-                )
-            else:
-                self._run_gvm_single(
-                    gvm, clip, input_path, alpha_dir,
-                    job, on_progress, on_warning, effective_batch,
-                )
+            self._run_gvm_single(
+                gvm, clip, input_path, alpha_dir,
+                job, on_progress, on_warning, effective_batch,
+            )
         finally:
             if temp_dir:
                 import shutil
@@ -975,109 +964,6 @@ class CorridorKeyService:
                 raise JobCancelledError(clip.name, 0) from None
             raise CorridorKeyError(f"GVM failed for '{clip.name}': {e}") from e
 
-    def _run_gvm_parallel(
-        self, gvm, clip, input_path, alpha_dir, concurrency, job, on_progress, on_warning, batch_size=1,
-    ):
-        """Run GVM on frame chunks in parallel threads.
-
-        Splits the input directory into N temporary chunk directories,
-        runs GVM on each chunk in a separate thread (same GPU), and all
-        chunks write directly to alpha_dir (filenames are preserved).
-        """
-        import shutil
-        import tempfile
-
-        from .natural_sort import natsorted
-        from .project import is_image_file
-
-        # List and split input frames
-        all_frames = natsorted([f for f in os.listdir(input_path) if is_image_file(f)])
-        total_frames = len(all_frames)
-
-        if total_frames < concurrency * 2:
-            # Not enough frames to justify parallel — run single
-            logger.info(f"GVM: only {total_frames} frames, running single-threaded")
-            return self._run_gvm_single(gvm, clip, input_path, alpha_dir, job, on_progress, on_warning)
-
-        # Split frames into chunks
-        chunk_size = total_frames // concurrency
-        chunks: list[list[str]] = []
-        for i in range(concurrency):
-            start = i * chunk_size
-            end = total_frames if i == concurrency - 1 else (i + 1) * chunk_size
-            chunks.append(all_frames[start:end])
-
-        logger.info(f"GVM parallel: {total_frames} frames split into {len(chunks)} chunks "
-                     f"({', '.join(str(len(c)) for c in chunks)} frames each)")
-
-        # Create temp chunk directories with symlinks to input frames
-        chunk_dirs: list[str] = []
-        temp_base = tempfile.mkdtemp(prefix="ck-gvm-chunks-")
-        try:
-            for i, chunk_frames in enumerate(chunks):
-                chunk_dir = os.path.join(temp_base, f"chunk_{i}")
-                os.makedirs(chunk_dir)
-                for fname in chunk_frames:
-                    src = os.path.join(input_path, fname)
-                    dst = os.path.join(chunk_dir, fname)
-                    os.symlink(src, dst)
-                chunk_dirs.append(chunk_dir)
-
-            # Track progress across all chunks
-            progress_lock = threading.Lock()
-            completed_frames = [0]
-            errors: list[Exception] = []
-
-            def _process_chunk(chunk_idx: int, chunk_dir: str) -> None:
-                chunk_len = len(chunks[chunk_idx])
-
-                def _chunk_progress(batch_idx: int, total_batches: int) -> None:
-                    with progress_lock:
-                        completed_frames[0] += 1
-                        if on_progress:
-                            on_progress(clip.name, completed_frames[0], total_frames)
-                    if job and job.is_cancelled:
-                        raise JobCancelledError(clip.name, batch_idx)
-
-                effective = max(1, batch_size)
-                if effective > 1 and effective % 2 != 0:
-                    effective += 1
-                try:
-                    gvm.process_sequence(
-                        input_path=chunk_dir,
-                        output_dir=clip.root_path,
-                        num_frames_per_batch=effective,
-                        decode_chunk_size=min(effective, 8),
-                        denoise_steps=1,
-                        mode="matte",
-                        write_video=False,
-                        direct_output_dir=alpha_dir,
-                        progress_callback=_chunk_progress,
-                    )
-                    logger.info(f"GVM chunk {chunk_idx} complete ({chunk_len} frames)")
-                except JobCancelledError:
-                    raise
-                except Exception as e:
-                    logger.error(f"GVM chunk {chunk_idx} failed: {e}")
-                    errors.append(e)
-
-            # Launch threads
-            threads: list[threading.Thread] = []
-            for i, chunk_dir in enumerate(chunk_dirs):
-                t = threading.Thread(target=_process_chunk, args=(i, chunk_dir), name=f"gvm-chunk-{i}")
-                t.start()
-                threads.append(t)
-
-            # Wait for all chunks
-            for t in threads:
-                t.join()
-
-            if errors and not (job and job.is_cancelled):
-                raise CorridorKeyError(f"GVM parallel failed: {len(errors)} chunk(s) errored — {errors[0]}")
-
-        finally:
-            # Clean up temp chunk directories
-            shutil.rmtree(temp_base, ignore_errors=True)
 
     # --- VideoMaMa Alpha Generation ---
 

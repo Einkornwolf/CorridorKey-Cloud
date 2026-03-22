@@ -102,6 +102,9 @@ class JobSchema(BaseModel):
     error_message: str | None = None
     claimed_by: str | None = None
     started_at: float = 0
+    completed_at: float = 0
+    duration_seconds: float = 0
+    fps: float = 0
     priority: int = 0
     shard_group: str | None = None
     shard_index: int = 0

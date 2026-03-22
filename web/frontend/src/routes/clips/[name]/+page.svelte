@@ -349,7 +349,7 @@
 								Run GVM Alpha
 							</button>
 							<select class="gvm-mode-select mono" bind:value={gvmMode}>
-								<option value="speed">Speed (sharded)</option>
+								<option value="speed">Standard (sharded)</option>
 								<option value="quality">Quality (single node)</option>
 								<option value="quality_sharded">Quality + Sharded</option>
 							</select>

@@ -108,6 +108,9 @@ export interface Job {
 	error_message: string | null;
 	claimed_by: string | null;
 	started_at: number;
+	completed_at: number;
+	duration_seconds: number;
+	fps: number;
 	priority: number;
 	shard_group: string | null;
 	shard_index: number;
