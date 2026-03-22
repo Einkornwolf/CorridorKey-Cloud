@@ -211,10 +211,16 @@ class GPUJobQueue:
         Returns:
             The claimed job, or None if no claimable job is available.
         """
+        # CPU-bound jobs that need the local filesystem — never dispatch to nodes
+        _LOCAL_ONLY = {JobType.VIDEO_EXTRACT, JobType.VIDEO_STITCH}
+
         with self._lock:
             for i, job in enumerate(self._queue):
                 # Skip jobs pinned to a different node
                 if job.preferred_node and job.preferred_node != claimer_id:
+                    continue
+                # Extract/stitch must run locally (need source video on disk)
+                if claimer_id != "local" and job.job_type in _LOCAL_ONLY:
                     continue
                 # Skip jobs this claimer can't handle
                 if accepted_types and job.job_type.value not in accepted_types:

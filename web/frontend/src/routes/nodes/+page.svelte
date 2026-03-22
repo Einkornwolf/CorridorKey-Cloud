@@ -35,12 +35,11 @@
 	let userOrgs = $state<{ org_id: string; name: string }[]>([]);
 	let selectedOrgId = $state('');
 
+	// Extract and stitch always run locally (CPU-bound, need source files on disk)
 	const ALL_JOB_TYPES = [
 		{ value: 'inference', label: 'Inference', kind: 'gpu' },
 		{ value: 'gvm_alpha', label: 'GVM Alpha', kind: 'gpu' },
 		{ value: 'videomama_alpha', label: 'VideoMaMa', kind: 'gpu' },
-		{ value: 'video_extract', label: 'Extract', kind: 'cpu' },
-		{ value: 'video_stitch', label: 'Stitch', kind: 'cpu' }
 	];
 	let viewingLogs = $state<string | null>(null);
 	let logLines = $state<string[]>([]);
