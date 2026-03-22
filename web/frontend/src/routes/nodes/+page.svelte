@@ -29,6 +29,7 @@
 	let showSetupGuide = $state(false);
 	let setupInfo = $state<{ main_url: string; image: string } | null>(null);
 	let generatedToken = $state('');
+	let generatedTokenLabel = $state('');
 	let tokenLabel = $state('');
 	let tokenGenerating = $state(false);
 	let nodeTokens = $state<{ token_preview: string; label: string; org_id: string; node_id: string | null; revoked: boolean; created_at: number }[]>([]);
@@ -94,6 +95,7 @@
 			const data = await res.json();
 			if (res.ok) {
 				generatedToken = data.token;
+				generatedTokenLabel = tokenLabel.trim();
 				tokenLabel = '';
 				// Refresh token list
 				const tokensRes = await fetch('/api/farm/tokens', { headers: { 'Authorization': `Bearer ${localStorage.getItem('ck:auth_token')}` } }).then(r => r.json());
@@ -357,26 +359,6 @@
 					<p class="step-desc">On the remote machine, run one of these:</p>
 
 					<div class="code-block">
-						<span class="code-label mono">Docker Compose</span>
-						<pre class="code mono">services:
-  corridorkey-node:
-    image: {setupInfo.image}
-    restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    environment:
-      - CK_MAIN_URL={setupInfo.main_url}
-      - CK_AUTH_TOKEN=&lt;paste token here&gt;
-      - CK_NODE_NAME=my-node
-      - CK_NODE_GPUS=auto</pre>
-					</div>
-
-					<div class="code-block">
 						<span class="code-label mono">Docker Compose (save as docker-compose.yml)</span>
 						<pre class="code mono">services:
   corridorkey-node:
@@ -391,8 +373,8 @@
               capabilities: [gpu]
     environment:
       - CK_MAIN_URL={setupInfo.main_url}
-      - CK_AUTH_TOKEN=&lt;paste token here&gt;
-      - CK_NODE_NAME=my-node
+      - CK_AUTH_TOKEN={generatedToken || '<paste token here>'}
+      - CK_NODE_NAME={generatedTokenLabel || 'my-node'}
       - CK_NODE_GPUS=auto
     volumes:
       - ck-weights:/app/CorridorKeyModule/checkpoints
