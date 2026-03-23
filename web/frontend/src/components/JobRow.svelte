@@ -84,8 +84,7 @@
 	}
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="job-row" class:running={isRunning} class:failed={isFailed} onclick={toggleLog}>
+<div class="job-row" class:running={isRunning} class:failed={isFailed} role="button" tabindex="0" onclick={toggleLog} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleLog(); }}}>
 	<div class="job-type mono">
 		<span class="type-dot" style="background: {statusColor}; box-shadow: 0 0 6px {statusColor}"></span>
 		{label}

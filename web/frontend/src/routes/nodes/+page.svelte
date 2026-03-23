@@ -434,7 +434,7 @@ volumes:
 						{/if}
 					</span>
 				</div>
-				<button class="toggle-btn" class:active={localGpuEnabled} onclick={toggleLocalGpu}>
+				<button class="toggle-btn" class:active={localGpuEnabled} onclick={toggleLocalGpu} role="switch" aria-checked={localGpuEnabled} aria-label="Toggle local GPU processing">
 					<span class="toggle-knob"></span>
 				</button>
 			</div>

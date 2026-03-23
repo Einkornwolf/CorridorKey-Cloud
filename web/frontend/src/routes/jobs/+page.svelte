@@ -108,8 +108,7 @@
 				{#each groupedRunning as item}
 					{#if isShardGroup(item)}
 						{@const g = item}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="shard-group" onclick={() => toggleGroup(g.group_id)}>
+						<button class="shard-group" onclick={() => toggleGroup(g.group_id)} aria-expanded={expandedGroups.has(g.group_id)}>
 							<div class="shard-group-header">
 								<span class="type-dot" style="background: var(--state-running); box-shadow: 0 0 6px var(--state-running)"></span>
 								<span class="shard-group-label mono">SHARDED</span>
@@ -118,7 +117,7 @@
 								<span class="shard-group-expand mono">{expandedGroups.has(g.group_id) ? '▲' : '▼'}</span>
 							</div>
 							<ProgressBar current={g.current_frame} total={g.total_frames} />
-						</div>
+						</button>
 						{#if expandedGroups.has(g.group_id)}
 							{#each g.shards as job (job.id)}
 								<JobRow {job} showCancel />
@@ -140,8 +139,7 @@
 				{#each groupedQueued as item, i}
 					{#if isShardGroup(item)}
 						{@const g = item}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="shard-group" onclick={() => toggleGroup(g.group_id)}>
+						<button class="shard-group" onclick={() => toggleGroup(g.group_id)} aria-expanded={expandedGroups.has(g.group_id)}>
 							<div class="shard-group-header">
 								<span class="type-dot" style="background: var(--state-queued)"></span>
 								<span class="shard-group-label mono">SHARDED</span>
@@ -149,7 +147,7 @@
 								<span class="shard-group-info mono">{g.shards.length} shards queued</span>
 								<span class="shard-group-expand mono">{expandedGroups.has(g.group_id) ? '▲' : '▼'}</span>
 							</div>
-						</div>
+						</button>
 						{#if expandedGroups.has(g.group_id)}
 							{#each g.shards as job, j (job.id)}
 								<JobRow {job} showCancel queueIndex={j} />
@@ -174,8 +172,7 @@
 				{#each groupedHistory as item}
 					{#if isShardGroup(item)}
 						{@const g = item}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div class="shard-group" onclick={() => toggleGroup(g.group_id)}>
+						<button class="shard-group" onclick={() => toggleGroup(g.group_id)} aria-expanded={expandedGroups.has(g.group_id)}>
 							<div class="shard-group-header">
 								<span class="type-dot" style="background: {g.failed > 0 ? 'var(--state-failed)' : 'var(--state-complete)'}"></span>
 								<span class="shard-group-label mono">SHARDED</span>
@@ -183,7 +180,7 @@
 								<span class="shard-group-info mono">{g.completed}/{g.shards.length} done{g.failed > 0 ? `, ${g.failed} failed` : ''}</span>
 								<span class="shard-group-expand mono">{expandedGroups.has(g.group_id) ? '▲' : '▼'}</span>
 							</div>
-						</div>
+						</button>
 						{#if expandedGroups.has(g.group_id)}
 							{#each g.shards as job (job.id)}
 								<JobRow {job} showDismiss />
@@ -338,7 +335,13 @@
 	}
 
 	.shard-group {
+		display: block;
+		width: 100%;
+		text-align: left;
+		font: inherit;
+		color: inherit;
 		padding: var(--sp-3) var(--sp-4);
+		border: none;
 		border-bottom: 1px solid var(--border-subtle);
 		cursor: pointer;
 		transition: background 0.15s;

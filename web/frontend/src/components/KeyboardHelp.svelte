@@ -24,13 +24,11 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#if visible}
-	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="kb-overlay" onclick={() => { visible = false; }}>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="kb-panel" onclick={(e) => e.stopPropagation()}>
+	<div class="kb-overlay" role="dialog" aria-modal="true" aria-label="Keyboard shortcuts" tabindex="-1" onclick={() => { visible = false; }} onkeydown={(e) => { if (e.key === 'Escape') visible = false; }}>
+		<div class="kb-panel" role="document" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
 			<div class="kb-header">
 				<h2>Keyboard Shortcuts</h2>
-				<button class="kb-close" onclick={() => { visible = false; }}>&times;</button>
+				<button class="kb-close" onclick={() => { visible = false; }} aria-label="Close">&times;</button>
 			</div>
 			<div class="kb-list">
 				{#each shortcuts as s}
