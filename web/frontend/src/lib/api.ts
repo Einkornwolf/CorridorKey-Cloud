@@ -18,9 +18,11 @@ async function handle401(method: string, path: string, opts: RequestInit): Promi
 	const session = await refreshToken();
 	if (!session) {
 		logout();
-		// Only redirect once — prevent loop from multiple concurrent 401s
+		// Only redirect once — prevent loop from multiple concurrent 401s.
+		// Reset after 5s so future 401s aren't permanently suppressed.
 		if (!_redirecting && !window.location.pathname.startsWith('/login')) {
 			_redirecting = true;
+			setTimeout(() => { _redirecting = false; }, 5000);
 			window.location.href = '/login';
 		}
 		return null;

@@ -33,10 +33,11 @@ web/frontend/node_modules/
 web/frontend/build/
 web/frontend/.svelte-kit/
 
-# Deploy secrets — NEVER commit these
+# Deploy secrets and local weight copies — NEVER commit these
 deploy/.env
 deploy/.env.supabase
 deploy/.env.local
+deploy/weights/
 
 # IDE
 .vscode/

@@ -7,7 +7,15 @@
 	import { getStoredUser } from '$lib/auth';
 	import InferenceForm from '../../components/InferenceForm.svelte';
 
+	import { onDestroy } from 'svelte';
+
 	let isAdmin = $state(false);
+	let _activePolls: ReturnType<typeof setInterval>[] = [];
+
+	onDestroy(() => {
+		_activePolls.forEach(clearInterval);
+		_activePolls = [];
+	});
 
 	let unloading = $state(false);
 	let weights = $state<Record<string, WeightInfo>>({});
@@ -44,10 +52,12 @@
 				const w = weights[name];
 				if (!w?.download || w.download.status !== 'downloading' || polls >= maxPolls) {
 					clearInterval(poll);
+					_activePolls = _activePolls.filter((p) => p !== poll);
 					if (w?.installed) toast.success(`${name} weights installed`);
 					else if (w?.download?.status === 'failed') toast.error(`${name} download failed: ${w.download.error}`);
 				}
 			}, 3000);
+			_activePolls.push(poll);
 		} catch (e) {
 			toast.error(e instanceof Error ? e.message : String(e));
 		}

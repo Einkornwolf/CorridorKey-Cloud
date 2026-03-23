@@ -171,6 +171,7 @@
 			stopEncodePolling();
 			encodeStatus = 'idle';
 		}
+		return () => stopEncodePolling();
 	});
 
 	// Wipe state
