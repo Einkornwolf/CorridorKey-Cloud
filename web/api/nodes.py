@@ -88,6 +88,7 @@ class NodeInfo:
     # Empty list = accept all job types. Non-empty = only these types.
     accepted_types: list[str] = field(default_factory=list)
     agent_version: str = ""  # reported by node on registration
+    build_number: int = 0  # git commit timestamp — higher = newer
     cpu_stats: dict = field(default_factory=dict)  # {cpu_percent, cpu_count, ram_*}
     health_history: list[dict] = field(default_factory=list, repr=False)  # last N snapshots
     recent_logs: list[str] = field(default_factory=list, repr=False)

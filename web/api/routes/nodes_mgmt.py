@@ -123,8 +123,15 @@ def list_managed_nodes(request: Request):
         data["org_name"] = org_names.get(n.org_id or "", "")
         rep = rep_map.get(n.node_id)
         data["reputation"] = rep.to_dict() if rep else None
-        # Version comparison
-        data["version_match"] = (n.agent_version == server_version) if n.agent_version else True
+        # Version comparison — use build_number for proper ordering
+        from ..version import BUILD_NUMBER
+
+        if n.build_number > 0 and BUILD_NUMBER > 0:
+            data["version_match"] = n.build_number >= BUILD_NUMBER
+        elif n.agent_version:
+            data["version_match"] = n.agent_version == server_version
+        else:
+            data["version_match"] = True
         data["server_version"] = server_version
         if not can_manage:
             # Redact infrastructure/operational details for read-only members.

@@ -41,6 +41,20 @@ def _get_local_version() -> str:
         return "unknown"
 
 
+def _get_local_build_number() -> int:
+    """Get git commit timestamp as build number (dev mode)."""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["git", "log", "-1", "--format=%ct"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return int(result.stdout.strip()) if result.returncode == 0 else 0
+    except Exception:
+        return 0
+
+
 class NodeAgent:
     """Lightweight agent that connects to the main CorridorKey server."""
 
@@ -138,6 +152,7 @@ class NodeAgent:
                 "uid": os.getuid(),
                 "read_only_fs": not os.access("/", os.W_OK),
                 "agent_version": os.environ.get("CK_BUILD_COMMIT", "").strip() or _get_local_version(),
+                "build_number": int(os.environ.get("CK_BUILD_NUMBER", "0").strip() or "0") or _get_local_build_number(),
             },
         }
 

@@ -116,6 +116,7 @@ class NodeSecurityInfo(BaseModel):
     uid: int = 0
     read_only_fs: bool = False
     agent_version: str = ""
+    build_number: int = 0  # Unix timestamp of the git commit — higher = newer
 
 
 class NodeRegisterRequest(BaseModel):
@@ -212,6 +213,7 @@ def register_node(req: NodeRegisterRequest, request: Request):
         org_id=org_id,
         accepted_types=req.accepted_types,
         agent_version=req.security.agent_version,
+        build_number=req.security.build_number,
     )
     registry.register(info)
     # Associate the per-node token with this node_id
@@ -224,19 +226,25 @@ def register_node(req: NodeRegisterRequest, request: Request):
     if node:
         _restore_node_config(node)
         manager.send_node_update(node.to_dict(), org_id=node.org_id)
-    # Version comparison — tell the node if it's outdated
-    from ..version import VERSION_STRING
+    # Version comparison — use build_number for proper ordering
+    from ..version import BUILD_NUMBER, VERSION_STRING
 
-    version_ok = True
     server_version = VERSION_STRING
-    if req.security.agent_version and req.security.agent_version != VERSION_STRING:
-        # Different version — check if node is behind
-        version_ok = False
-        if req.security.agent_version:
-            logger.info(
-                f"Node {req.name} version {req.security.agent_version} "
-                f"differs from server {VERSION_STRING}"
-            )
+    node_build = req.security.build_number
+    # Node is outdated if its build_number is lower than the server's.
+    # build_number=0 means unknown (old agent) — treat as outdated if versions differ.
+    if node_build > 0 and BUILD_NUMBER > 0:
+        version_ok = node_build >= BUILD_NUMBER
+    elif req.security.agent_version:
+        version_ok = req.security.agent_version == VERSION_STRING
+    else:
+        version_ok = True  # Can't determine — assume ok
+
+    if not version_ok:
+        logger.info(
+            f"Node {req.name} outdated: build {node_build} < server {BUILD_NUMBER} "
+            f"(node: {req.security.agent_version}, server: {VERSION_STRING})"
+        )
 
     return {
         "status": "registered",
