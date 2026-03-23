@@ -120,7 +120,7 @@ def get_preview_frame(clip_name: str, pass_name: str, frame: int, request: Reque
         os.environ["OPENCV_IO_ENABLE_OPENEXR"] = "1"
         img = cv2.imread(fpath, cv2.IMREAD_ANYDEPTH | cv2.IMREAD_UNCHANGED)
         if img is None:
-            raise HTTPException(status_code=500, detail=f"Failed to read {fpath}")
+            raise HTTPException(status_code=500, detail="Failed to read matte frame")
         if img.ndim == 3:
             img = img[:, :, 0]
         if img.dtype != np.uint8:
@@ -132,7 +132,7 @@ def get_preview_frame(clip_name: str, pass_name: str, frame: int, request: Reque
 
     img = read_image_frame(fpath)
     if img is None:
-        raise HTTPException(status_code=500, detail=f"Failed to read {fpath}")
+        raise HTTPException(status_code=500, detail="Failed to read frame")
 
     return Response(content=_frame_to_png_bytes(img), media_type="image/png")
 
@@ -305,7 +305,7 @@ def get_preview_video(clip_name: str, pass_name: str, request: Request, fps: int
     except Exception as e:
         logger.error(f"Video stitch failed: {e}")
         with _encode_progress_lock:
-            _encode_progress[key] = {"status": "error", "detail": str(e)}
+            _encode_progress[key] = {"status": "error", "detail": "Video encoding failed"}
         raise HTTPException(status_code=500, detail="Failed to create preview video") from e
     finally:
         encode_lock.release()

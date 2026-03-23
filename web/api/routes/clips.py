@@ -103,9 +103,9 @@ def delete_clip(name: str, request: Request):
     if not os.path.isdir(clip_root):
         raise HTTPException(status_code=404, detail="Clip directory not found on disk")
 
-    # Safety: ensure the path is inside the clips dir
-    abs_clips = os.path.abspath(clips_dir)
-    abs_clip = os.path.abspath(clip_root)
+    # Safety: ensure the resolved path is inside the clips dir (realpath follows symlinks)
+    abs_clips = os.path.realpath(clips_dir)
+    abs_clip = os.path.realpath(clip_root)
     if not abs_clip.startswith(abs_clips + os.sep):
         raise HTTPException(status_code=403, detail="Clip path is outside the projects directory")
 
@@ -158,10 +158,10 @@ def move_clip(name: str, target_project: str, request: Request):
     if os.path.exists(dest):
         raise HTTPException(status_code=409, detail=f"A clip named '{name}' already exists in the target project")
 
-    # Safety checks
-    abs_root = os.path.abspath(clips_dir)
-    abs_src = os.path.abspath(clip.root_path)
-    abs_dst = os.path.abspath(dest)
+    # Safety checks (realpath follows symlinks to prevent symlink-based escape)
+    abs_root = os.path.realpath(clips_dir)
+    abs_src = os.path.realpath(clip.root_path)
+    abs_dst = os.path.realpath(os.path.dirname(dest)) + os.sep + os.path.basename(dest)
     if not abs_src.startswith(abs_root + os.sep) or not abs_dst.startswith(abs_root + os.sep):
         raise HTTPException(status_code=403, detail="Path outside projects directory")
 
