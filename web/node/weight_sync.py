@@ -37,6 +37,16 @@ HF_REPOS: dict[str, dict] = {
     },
 }
 
+# Required files per weight set — _check_weights_exist verifies ALL of these exist.
+# Prevents "already present" false positives from partial downloads.
+_REQUIRED_FILES: dict[str, list[str]] = {
+    "corridorkey": ["CorridorKey_v1.0.pth"],
+    "gvm": ["vae/config.json", "vae/diffusion_pytorch_model.safetensors",
+             "unet/config.json", "unet/diffusion_pytorch_model.safetensors",
+             "scheduler/scheduler_config.json"],
+    "videomama": ["unet/config.json", "unet/diffusion_pytorch_model.safetensors"],
+}
+
 
 def _repo_root() -> str:
     """Find the repo root by walking up from this file."""
@@ -163,12 +173,27 @@ def _download_from_server(main_url: str, name: str, abs_local: str) -> None:
 
 
 def _check_weights_exist(name: str, local_dir: str) -> bool:
-    """Quick check if a weight set has any real files."""
+    """Check if a weight set is complete by verifying all required files exist.
+
+    Uses _REQUIRED_FILES for the specific model. Falls back to "any model file exists"
+    for unknown weight sets.
+    """
     if not os.path.isdir(local_dir):
         return False
+
+    required = _REQUIRED_FILES.get(name)
+    if required:
+        for rel_path in required:
+            full_path = os.path.join(local_dir, rel_path)
+            if not os.path.isfile(full_path):
+                logger.debug(f"Weight check '{name}': missing {rel_path}")
+                return False
+        return True
+
+    # Fallback for unknown weight sets: any model file exists
     for _root, _dirs, files in os.walk(local_dir):
         for f in files:
-            if f.endswith((".pth", ".safetensors", ".bin", ".json")) and not f.startswith("."):
+            if f.endswith((".pth", ".safetensors", ".bin")) and not f.startswith("."):
                 return True
     return False
 
