@@ -207,38 +207,40 @@ class FileTransfer:
         return count
 
     def _upload_bundle(self, clip_name: str, pass_name: str, src_dir: str, files: list[str]) -> int:
-        """Upload files as a streaming tar (single HTTP request, no memory buffering)."""
+        """Upload files as a gzip-compressed tar (single HTTP request).
 
-        def _generate_tar():
-            """Yield tar chunks without buffering the entire archive in memory."""
-            buf = io.BytesIO()
-            with tarfile.open(fileobj=buf, mode="w|") as tar:
-                for fname in files:
-                    fpath = os.path.join(src_dir, fname)
-                    tar.add(fpath, arcname=fname)
-                    # Flush accumulated data
-                    buf.seek(0)
-                    data = buf.read()
-                    buf.seek(0)
-                    buf.truncate()
-                    if data:
-                        yield data
-            # Final flush
-            buf.seek(0)
-            remaining = buf.read()
-            if remaining:
-                yield remaining
+        Compresses in memory to get a Content-Length header, which avoids
+        chunked transfer encoding that Cloudflare can kill mid-stream.
+        """
+        import gzip
+
+        # Build tar in memory, then gzip it — gives us a known Content-Length
+        # which is much more reliable through Cloudflare than chunked streaming.
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w") as tar:
+            for fname in files:
+                fpath = os.path.join(src_dir, fname)
+                tar.add(fpath, arcname=fname)
+        raw = buf.getvalue()
+        compressed = gzip.compress(raw, compresslevel=1)  # fast compression
+        ratio = len(raw) / max(1, len(compressed))
+        logger.debug(f"Bundle {clip_name}/{pass_name}: {len(raw) / 1024 / 1024:.1f}MB → {len(compressed) / 1024 / 1024:.1f}MB ({ratio:.1f}x)")
 
         url = self._url(f"{clip_name}/{pass_name}/bundle")
         with _transfer_semaphore, httpx.Client(timeout=self.timeout, headers=self._headers) as client:
             r = client.post(
                 url,
-                content=_generate_tar(),
-                headers={**self._headers, "Content-Type": "application/x-tar"},
+                content=compressed,
+                headers={
+                    **self._headers,
+                    "Content-Type": "application/x-tar",
+                    "Content-Encoding": "gzip",
+                    "Content-Length": str(len(compressed)),
+                },
             )
             r.raise_for_status()
             data = r.json()
             count = data.get("count", len(files))
 
-        logger.info(f"Uploaded {count} files (bundle) for {clip_name}/{pass_name}")
+        logger.info(f"Uploaded {count} files (bundle, {len(compressed) / 1024 / 1024:.1f}MB gzip) for {clip_name}/{pass_name}")
         return count

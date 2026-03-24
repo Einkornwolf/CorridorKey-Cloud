@@ -783,6 +783,7 @@ async def upload_result_bundle(node_id: str, clip_name: str, pass_name: str, req
     _MAX_TAR_MEMBER = 500 * 1024 * 1024  # 500MB per extracted file
 
     count = 0
+    is_gzip = request.headers.get("Content-Encoding", "").strip().lower() == "gzip"
     try:
         with _tempfile.SpooledTemporaryFile(max_size=64 * 1024 * 1024) as tmp:
             total_bytes = 0
@@ -792,6 +793,20 @@ async def upload_result_bundle(node_id: str, clip_name: str, pass_name: str, req
                     raise HTTPException(status_code=413, detail="Upload exceeds maximum size")
                 tmp.write(chunk)
             tmp.seek(0)
+
+            # Decompress gzip if node sent compressed bundle
+            if is_gzip:
+                import gzip as _gzip
+
+                decompressed = _tempfile.SpooledTemporaryFile(max_size=64 * 1024 * 1024)
+                with _gzip.open(tmp, "rb") as gz:
+                    while True:
+                        block = gz.read(8 * 1024 * 1024)
+                        if not block:
+                            break
+                        decompressed.write(block)
+                decompressed.seek(0)
+                tmp = decompressed
 
             with tarfile.open(fileobj=tmp, mode="r|") as tar:
                 for member in tar:
