@@ -646,12 +646,12 @@ class CorridorKeyService:
         skipped: list[int] = []
         skip_stems = skip_stems or set()
 
-        # Determine frame range (in/out markers or full clip)
+        # Determine frame range — [start, end) exclusive end (matches Python slice convention)
         if frame_range is not None:
             range_start = max(0, frame_range[0])
-            range_end = min(num_frames - 1, frame_range[1])
-            frame_indices = range(range_start, range_end + 1)
-            range_count = range_end - range_start + 1
+            range_end = min(num_frames, frame_range[1])  # exclusive end, clamped to num_frames
+            frame_indices = range(range_start, range_end)
+            range_count = range_end - range_start
         else:
             frame_indices = range(num_frames)
             range_count = num_frames
@@ -757,7 +757,7 @@ class CorridorKeyService:
         )
 
         # State transition — only set COMPLETE if full clip was processed
-        is_full_clip = frame_range is None or (frame_range[0] == 0 and frame_range[1] >= num_frames - 1)
+        is_full_clip = frame_range is None or (frame_range[0] == 0 and frame_range[1] >= num_frames)
         if processed == range_count and is_full_clip:
             try:
                 clip.transition_to(ClipState.COMPLETE)

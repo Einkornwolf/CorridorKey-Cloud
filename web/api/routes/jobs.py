@@ -292,7 +292,7 @@ def submit_sharded_inference(req: ShardedInferenceRequest, request: Request):
         for i in range(num_shards):
             # Spread remainder across first N shards (each gets +1 frame)
             size = base + (1 if i < remainder else 0)
-            shard_ranges.append((cursor, cursor + size - 1))  # inclusive end
+            shard_ranges.append((cursor, cursor + size))
             cursor += size
 
         for i, (start, end) in enumerate(shard_ranges):
@@ -302,7 +302,7 @@ def submit_sharded_inference(req: ShardedInferenceRequest, request: Request):
                 params={
                     "inference_params": req.params.model_dump(),
                     "output_config": req.output_config.model_dump(),
-                    "frame_range": [start, end],  # inclusive range for run_inference
+                    "frame_range": [start, end],
                 },
                 shard_group=group_id,
                 shard_index=i,
@@ -532,7 +532,7 @@ def _build_inference_shards(clip_name: str, frame_count: int, extra_params: dict
             job = GPUJob(
                 job_type=JobType.INFERENCE,
                 clip_name=clip_name,
-                params={**params, "frame_range": [cursor, cursor + size - 1]},  # inclusive end
+                params={**params, "frame_range": [cursor, cursor + size]},  
                 shard_group=group_id,
                 shard_index=i,
                 shard_total=len(sizes),
