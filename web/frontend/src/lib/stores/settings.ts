@@ -45,9 +45,9 @@ export const defaultParams = persisted<InferenceParams>('ck:defaultParams', {
 });
 
 export const defaultOutputConfig = persisted<OutputConfig>('ck:defaultOutputConfig', {
-	fg_enabled: true,
+	fg_enabled: false,
 	fg_format: 'exr',
-	matte_enabled: true,
+	matte_enabled: false,
 	matte_format: 'exr',
 	comp_enabled: true,
 	comp_format: 'png',

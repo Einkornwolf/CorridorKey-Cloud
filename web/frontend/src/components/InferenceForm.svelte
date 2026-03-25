@@ -10,9 +10,9 @@
 			refiner_scale: 1.0,
 		}),
 		outputConfig = $bindable<OutputConfig>({
-			fg_enabled: true,
+			fg_enabled: false,
 			fg_format: 'exr',
-			matte_enabled: true,
+			matte_enabled: false,
 			matte_format: 'exr',
 			comp_enabled: true,
 			comp_format: 'png',

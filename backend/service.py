@@ -117,11 +117,16 @@ class InferenceParams:
 
 @dataclass
 class OutputConfig:
-    """Which output types to produce and their format."""
+    """Which output types to produce and their format.
 
-    fg_enabled: bool = True
+    Defaults: Processed (comp-ready RGBA EXR) + Comp (PNG preview) enabled.
+    FG and Matte disabled by default — most users only need Processed.
+    Advanced users can enable FG/Matte for separate-pass compositing.
+    """
+
+    fg_enabled: bool = False
     fg_format: str = "exr"  # "exr" or "png"
-    matte_enabled: bool = True
+    matte_enabled: bool = False
     matte_format: str = "exr"
     comp_enabled: bool = True
     comp_format: str = "png"
