@@ -1597,6 +1597,22 @@ volumes:
 	.rep-good { background: rgba(93, 216, 121, 0.12); color: var(--state-complete); }
 	.rep-mid { background: rgba(255, 242, 3, 0.12); color: var(--accent); }
 	.rep-bad { background: rgba(255, 82, 82, 0.12); color: var(--state-error); }
+	.rep-breakdown {
+		position: absolute; top: 100%; right: 0; z-index: 100;
+		background: var(--surface-2); border: 1px solid var(--border);
+		border-radius: var(--radius-md); padding: var(--sp-3);
+		min-width: 260px; margin-top: 4px;
+		box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+	}
+	.rep-row {
+		display: grid; grid-template-columns: 80px 1fr 50px;
+		gap: var(--sp-2); align-items: baseline;
+		font-size: 11px; padding: 3px 0; color: var(--text-secondary);
+	}
+	.rep-row span:first-child { color: var(--text-tertiary); }
+	.rep-pts { color: var(--accent); text-align: right; }
+	.rep-penalty .rep-pts { color: var(--state-error); }
+	.rep-divider { border-top: 1px solid var(--border); margin: 6px 0; }
 
 	.visibility-badge {
 		font-size: 9px; letter-spacing: 0.06em; padding: 2px 6px;
