@@ -106,6 +106,8 @@ class JobSchema(BaseModel):
     shard_total: int = 1
     org_id: str | None = None
     submitted_by: str | None = None
+    queue_position: int | None = None  # position in queue (1-based), None if not queued
+    estimated_wait_seconds: float | None = None  # estimated seconds until this job starts
 
 
 class JobListResponse(BaseModel):

@@ -124,6 +124,26 @@ def _can_start_gpu_job() -> bool:
     return can
 
 
+def _friendly_error(e: Exception) -> str:
+    """Map exceptions to actionable user-facing messages."""
+    msg = str(e).lower()
+    if isinstance(e, CorridorKeyError):
+        return str(e)
+    if "cuda" in msg and ("out of memory" in msg or "oom" in msg):
+        return "GPU ran out of memory. Try a shorter clip or wait for a larger GPU."
+    if "no alpha" in msg or "alphahint" in msg and "not found" in msg:
+        return "No alpha hints found. Run GVM Alpha first, or use Run Full Pipeline."
+    if "not found" in msg and "clip" in msg:
+        return "Clip not found. It may have been deleted or moved."
+    if "codec" in msg or "decode" in msg or "corrupt" in msg:
+        return "Could not read input frames. Check your video is a supported format (MP4, MOV, AVI, MKV)."
+    if "timeout" in msg or "connection refused" in msg:
+        return "Network error during processing. Your job may be requeued automatically."
+    if "permission" in msg or "access denied" in msg:
+        return "File access error on the server. Please contact an admin."
+    return "Internal processing error. Check the job log for details."
+
+
 def _find_clip(service: CorridorKeyService, clips_dir: str, clip_name: str):
     """Find a clip by name from the clips directory."""
     clips = service.scan_clips(clips_dir)
@@ -360,8 +380,8 @@ def _run_job(service: CorridorKeyService, job: GPUJob, queue: GPUJobQueue, clips
     except Exception as e:
         error_msg = str(e)
         logger.exception(f"Job {job.id} failed: {error_msg}")
-        # Sanitize: only expose CorridorKeyError messages to clients
-        client_msg = str(e) if isinstance(e, CorridorKeyError) else "Internal processing error"
+        # Map common errors to actionable user-facing messages
+        client_msg = _friendly_error(e)
         queue.fail_job(job, error_msg)  # full detail in server-side history
         manager.send_job_status(job.id, JobStatus.FAILED.value, error=client_msg, org_id=job.org_id)
 

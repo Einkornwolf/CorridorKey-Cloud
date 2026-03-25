@@ -155,6 +155,8 @@ export interface Job {
 	shard_group: string | null;
 	shard_index: number;
 	shard_total: number;
+	queue_position: number | null;
+	estimated_wait_seconds: number | null;
 }
 
 export interface JobListResponse {

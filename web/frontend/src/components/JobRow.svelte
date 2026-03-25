@@ -114,6 +114,13 @@
 				<span class="stat-sep">&bull;</span>
 				<span>{formatDuration(job.duration_seconds)}</span>
 			</div>
+		{:else if isQueued && job.queue_position}
+			<span class="job-status mono" style="color: {statusColor}">
+				QUEUED #{job.queue_position}
+				{#if job.estimated_wait_seconds}
+					<span class="queue-eta">~{formatDuration(job.estimated_wait_seconds)}</span>
+				{/if}
+			</span>
 		{:else}
 			<span class="job-status mono" style="color: {statusColor}">{job.status.toUpperCase()}</span>
 		{/if}
@@ -225,6 +232,10 @@
 		font-size: 10px;
 		letter-spacing: 0.06em;
 		font-weight: 500;
+	}
+	.queue-eta {
+		color: var(--text-tertiary);
+		margin-left: 4px;
 	}
 
 	.job-stats {

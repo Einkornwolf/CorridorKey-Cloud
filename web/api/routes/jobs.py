@@ -32,15 +32,17 @@ from ..tier_guard import require_admin, require_member
 router = APIRouter(prefix="/api/jobs", tags=["jobs"], dependencies=[Depends(require_member)])
 
 
-def _stamp_job(job: GPUJob, request: Request | None, estimated_seconds: float = 0) -> GPUJob:
+def _stamp_job(job: GPUJob, request: Request | None, estimated_seconds: float = 0, frame_count: int = 0) -> GPUJob:
     """Set submitted_by and org_id from the authenticated user (CRKY-66).
 
-    Also checks GPU credit balance before allowing submission (CRKY-37).
-    Estimated_seconds is the projected GPU cost — if submitting this job
-    would push the org over the credit ratio, it's rejected.
+    Also checks tier limits and GPU credit balance before allowing submission.
     """
     if request is None:
         return job
+    # Check tier limits (frame count + concurrent jobs) — CRKY-114
+    from ..tier_limits import check_tier_limits
+
+    check_tier_limits(request, frame_count=frame_count)
     # Check credit balance with projected cost (CRKY-37)
     check_credit_balance(request, estimated_seconds=estimated_seconds)
     user = get_current_user(request)
@@ -156,10 +158,30 @@ def list_jobs(request: Request):
     running = [j for j in queue.running_jobs if _visible(j)]
     queued = [j for j in queue.queue_snapshot if _visible(j)]
     history = [j for j in queue.history_snapshot if _visible(j)]
+
+    # Compute queue wait estimates
+    import time as _time
+
+    # Average job duration from recent history
+    recent = [j for j in history if j.status.value == "completed" and j.started_at > 0
+              and j.completed_at > j.started_at and j.completed_at > _time.time() - 7200]
+    avg_duration = (sum(j.completed_at - j.started_at for j in recent) / len(recent)) if recent else 300.0
+
+    # Available GPU slots (running jobs = occupied slots)
+    gpu_slots = max(1, len(running) + len(_get_available_gpus("inference")))
+
+    queued_schemas = []
+    for i, j in enumerate(queued):
+        schema = _job_to_schema(j, is_admin=admin)
+        schema.queue_position = i + 1
+        # Estimate: (position / gpu_slots) * avg_duration
+        schema.estimated_wait_seconds = round(((i + 1) / gpu_slots) * avg_duration, 0)
+        queued_schemas.append(schema)
+
     return JobListResponse(
         current=_job_to_schema(running[0], is_admin=admin) if running else None,
         running=[_job_to_schema(j, is_admin=admin) for j in running],
-        queued=[_job_to_schema(j, is_admin=admin) for j in queued],
+        queued=queued_schemas,
         history=[_job_to_schema(j, is_admin=admin) for j in history],
     )
 
@@ -189,7 +211,7 @@ def submit_inference(req: InferenceJobRequest, request: Request):
                 "frame_range": list(req.frame_range) if req.frame_range else None,
             },
         )
-        _stamp_job(job, request, estimated_seconds=est)
+        _stamp_job(job, request, estimated_seconds=est, frame_count=frame_count)
         if queue.submit(job):
             submitted.append(_job_to_schema(job))
     if not submitted:
@@ -570,7 +592,7 @@ def submit_gvm(req: GVMJobRequest, request: Request):
         frame_count = clip.input_asset.frame_count if clip.input_asset else 0
         est = estimate_gpu_seconds("gvm_alpha", frame_count)
         for job in _build_gvm_jobs(clip_name, frame_count):
-            _stamp_job(job, request, estimated_seconds=est)
+            _stamp_job(job, request, estimated_seconds=est, frame_count=frame_count)
             if queue.submit(job):
                 submitted.append(_job_to_schema(job))
 
@@ -600,7 +622,7 @@ def submit_videomama(req: VideoMaMaJobRequest, request: Request):
             clip_name=clip_name,
             params={"chunk_size": req.chunk_size},
         )
-        _stamp_job(job, request, estimated_seconds=est)
+        _stamp_job(job, request, estimated_seconds=est, frame_count=frame_count)
         if queue.submit(job):
             submitted.append(_job_to_schema(job))
     if not submitted:
@@ -677,7 +699,7 @@ def submit_pipeline(req: PipelineJobRequest, request: Request):
             est += estimate_gpu_seconds("inference", frame_count)
 
         for job in jobs:
-            _stamp_job(job, request, estimated_seconds=est)
+            _stamp_job(job, request, estimated_seconds=est, frame_count=frame_count)
             est = 0  # only charge once for the whole pipeline
             if queue.submit(job):
                 submitted.append(_job_to_schema(job))

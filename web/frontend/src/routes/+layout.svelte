@@ -183,6 +183,9 @@
 {#if isPublicPage}
 	{@render children()}
 {:else if authChecked}
+<div class="mobile-banner">
+	<span>CorridorKey is best experienced on desktop.</span>
+</div>
 <div class="shell">
 	<nav class="sidebar">
 		<div class="sidebar-top">
@@ -304,6 +307,18 @@
 <KeyboardHelp />
 
 <style>
+	.mobile-banner {
+		display: none;
+		background: var(--surface-2);
+		color: var(--text-secondary);
+		text-align: center;
+		padding: 8px 16px;
+		font-size: 12px;
+		border-bottom: 1px solid var(--border);
+	}
+	@media (max-width: 768px) {
+		.mobile-banner { display: block; }
+	}
 	.shell {
 		display: flex;
 		height: 100vh;
