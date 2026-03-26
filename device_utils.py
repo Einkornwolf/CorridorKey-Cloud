@@ -1,10 +1,7 @@
 """Centralized cross-platform device selection for CorridorKey."""
 
-import json
 import logging
 import os
-import subprocess
-from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +10,7 @@ VALID_DEVICES = ("auto", "cuda", "mps", "cpu")
 
 
 def is_rocm_system() -> bool:
-    """Detect if the system has AMD ROCm available (before or after torch import).
+    """Detect if the system has AMD ROCm available.
 
     Checks: /opt/rocm (Linux), HIP_PATH (Windows, default C:\\hip),
     HIP_VISIBLE_DEVICES (any platform), CORRIDORKEY_ROCM=1 (explicit opt-in).
@@ -29,7 +26,9 @@ def is_rocm_system() -> bool:
 def setup_rocm_env() -> None:
     """Set ROCm environment variables and apply optional patches.
 
-    Must be called before importing torch. Safe to call on non-ROCm systems (no-op).
+    These env vars are read by PyTorch/MIOpen at operation time (not import
+    time), so calling this after ``import torch`` is fine. Safe to call on
+    non-ROCm systems (no-op).
     """
     if not is_rocm_system():
         return
@@ -43,11 +42,13 @@ def setup_rocm_env() -> None:
         import pytorch_rocm_gtt
 
         pytorch_rocm_gtt.patch()
+    except ImportError:
+        pass  # not installed — expected on most systems
     except Exception:
-        pass  # not installed, or patch failed — non-fatal
+        logger.warning("pytorch-rocm-gtt is installed but patch() failed", exc_info=True)
 
 
-import torch  # noqa: E402 — deferred so setup_rocm_env() can run first
+import torch  # noqa: E402
 
 
 def detect_best_device() -> str:
@@ -104,164 +105,6 @@ def resolve_device(requested: str | None = None) -> str:
             )
 
     return device
-
-
-@dataclass
-class GPUInfo:
-    """Information about a single GPU."""
-
-    index: int
-    name: str
-    vram_total_gb: float
-    vram_free_gb: float
-
-
-def _enumerate_nvidia() -> list[GPUInfo] | None:
-    """Enumerate NVIDIA GPUs via nvidia-smi. Returns None if unavailable."""
-    try:
-        result = subprocess.run(
-            [
-                "nvidia-smi",
-                "--query-gpu=index,name,memory.total,memory.free",
-                "--format=csv,nounits,noheader",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode != 0:
-            return None
-        gpus: list[GPUInfo] = []
-        for line in result.stdout.strip().split("\n"):
-            parts = [p.strip() for p in line.split(",")]
-            if len(parts) >= 4:
-                gpus.append(
-                    GPUInfo(
-                        index=int(parts[0]),
-                        name=parts[1],
-                        vram_total_gb=float(parts[2]) / 1024,
-                        vram_free_gb=float(parts[3]) / 1024,
-                    )
-                )
-        return gpus
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        return None
-
-
-def _enumerate_amd() -> list[GPUInfo] | None:
-    """Enumerate AMD GPUs via amd-smi (ROCm). Returns None if unavailable.
-
-    Tries amd-smi first (modern), then rocm-smi (legacy).
-    """
-    # Try amd-smi (ROCm 6.0+)
-    try:
-        result = subprocess.run(
-            ["amd-smi", "static", "--json"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode == 0:
-            data = json.loads(result.stdout)
-            gpus: list[GPUInfo] = []
-            for i, gpu in enumerate(data):
-                try:
-                    name = gpu.get("asic", {}).get("market_name", f"AMD GPU {i}")
-                    vram_info = gpu.get("vram", {})
-                    total_mb = vram_info.get("size", {}).get("value", 0)
-                    total_gb = float(total_mb) / 1024 if total_mb else 0
-                    gpus.append(GPUInfo(index=i, name=name, vram_total_gb=total_gb, vram_free_gb=total_gb))
-                except (KeyError, TypeError, ValueError):
-                    logger.debug("Failed to parse amd-smi entry %d, skipping", i)
-            if gpus:
-                # Try to get live VRAM usage from monitor
-                try:
-                    mon = subprocess.run(
-                        ["amd-smi", "monitor", "--vram", "--json"],
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                    )
-                    if mon.returncode == 0:
-                        mon_data = json.loads(mon.stdout)
-                        for entry in mon_data:
-                            idx = entry.get("gpu", 0)
-                            used_pct = entry.get("vram_use", 0)
-                            if idx < len(gpus) and gpus[idx].vram_total_gb > 0:
-                                used_gb = gpus[idx].vram_total_gb * float(used_pct) / 100
-                                gpus[idx].vram_free_gb = gpus[idx].vram_total_gb - used_gb
-                except Exception:
-                    pass
-                return gpus
-    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
-        pass
-
-    # Fallback: rocm-smi (legacy, deprecated but still ships)
-    try:
-        result = subprocess.run(
-            ["rocm-smi", "--showid", "--showmeminfo", "vram", "--csv"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            gpus = []
-            for line in result.stdout.strip().split("\n")[1:]:  # skip header
-                parts = [p.strip() for p in line.split(",")]
-                if len(parts) >= 3:
-                    idx = int(parts[0]) if parts[0].isdigit() else len(gpus)
-                    total_b = int(parts[1]) if parts[1].isdigit() else 0
-                    used_b = int(parts[2]) if parts[2].isdigit() else 0
-                    gpus.append(
-                        GPUInfo(
-                            index=idx,
-                            name=f"AMD GPU {idx}",
-                            vram_total_gb=total_b / (1024**3),
-                            vram_free_gb=(total_b - used_b) / (1024**3),
-                        )
-                    )
-            if gpus:
-                return gpus
-    except (FileNotFoundError, subprocess.TimeoutExpired):
-        pass
-
-    return None
-
-
-def enumerate_gpus() -> list[GPUInfo]:
-    """List all available GPUs with VRAM info.
-
-    Tries nvidia-smi (NVIDIA), then amd-smi/rocm-smi (AMD ROCm),
-    then falls back to torch.cuda API.
-    Returns an empty list on non-GPU systems.
-    """
-    # NVIDIA
-    gpus = _enumerate_nvidia()
-    if gpus is not None:
-        return gpus
-
-    # AMD ROCm
-    gpus = _enumerate_amd()
-    if gpus is not None:
-        return gpus
-
-    # Fallback to torch (works for both NVIDIA and ROCm via HIP)
-    if torch.cuda.is_available():
-        fallback: list[GPUInfo] = []
-        for i in range(torch.cuda.device_count()):
-            props = torch.cuda.get_device_properties(i)
-            total = props.total_memory / (1024**3)
-            fallback.append(
-                GPUInfo(
-                    index=i,
-                    name=props.name,
-                    vram_total_gb=total,
-                    vram_free_gb=total,  # can't query free without setting device
-                )
-            )
-        return fallback
-
-    return []
 
 
 def clear_device_cache(device: torch.device | str) -> None:

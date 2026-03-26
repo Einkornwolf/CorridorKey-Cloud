@@ -5,26 +5,27 @@ import math
 import os
 import sys
 
-# ROCm env vars + autotune cache must be set before importing torch.
-from device_utils import setup_rocm_env as _setup_rocm_env  # noqa: E402 — no torch import
+import cv2
+import numpy as np
+import torch
+import torch.nn.functional as F
+import torchvision
+import torchvision.transforms.v2 as T
+import torchvision.transforms.v2.functional as TF
 
-_setup_rocm_env()
+from device_utils import setup_rocm_env
+
+from .core import color_utils as cu
+from .core.model_transformer import GreenFormer
+
+# ROCm env vars are read at operation time (not import time), so this is
+# fine after importing torch. Also sets up pytorch-rocm-gtt if installed.
+setup_rocm_env()
 
 # Persist torch.compile autotune cache across runs (default is /tmp which
 # gets wiped on reboot — saves 10-20 min re-autotuning on ROCm, ~30s on CUDA)
 _inductor_cache = os.path.join(os.path.expanduser("~"), ".cache", "corridorkey", "inductor")
 os.environ.setdefault("TORCHINDUCTOR_CACHE_DIR", _inductor_cache)
-
-import cv2  # noqa: E402
-import numpy as np  # noqa: E402
-import torch  # noqa: E402
-import torch.nn.functional as F  # noqa: E402
-import torchvision  # noqa: E402
-import torchvision.transforms.v2 as T  # noqa: E402
-import torchvision.transforms.v2.functional as TF  # noqa: E402
-
-from .core import color_utils as cu  # noqa: E402
-from .core.model_transformer import GreenFormer  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -60,14 +61,13 @@ class CorridorKeyEngine:
 
         self.model_precision = model_precision
 
+        self._is_rocm = hasattr(torch.version, "hip") and torch.version.hip
         self.model = self._load_model()
-
-        is_rocm = hasattr(torch.version, "hip") and torch.version.hip
 
         # torch.compile is tested on CUDA (Windows + Linux) and ROCm (Linux).
         # ROCm on Windows hangs during Triton kernel compilation — skip it.
         # CORRIDORKEY_SKIP_COMPILE=1 forces eager mode (useful for testing).
-        skip_compile = (is_rocm and sys.platform == "win32") or os.environ.get("CORRIDORKEY_SKIP_COMPILE") == "1"
+        skip_compile = (self._is_rocm and sys.platform == "win32") or os.environ.get("CORRIDORKEY_SKIP_COMPILE") == "1"
         if skip_compile:
             logger.info("Skipping torch.compile (eager mode)")
         elif sys.platform == "linux" or sys.platform == "win32":
@@ -133,8 +133,7 @@ class CorridorKeyEngine:
         return model
 
     def _compile(self):
-        is_rocm = hasattr(torch.version, "hip") and torch.version.hip
-        if is_rocm:
+        if self._is_rocm:
             # "default" avoids the heavy autotuning that OOM-kills 16GB cards
             # at 2048x2048. Still compiles Triton kernels, just skips the
             # exhaustive benchmarking. HIP graphs are also avoided (segfault
@@ -144,7 +143,7 @@ class CorridorKeyEngine:
             compile_mode = "max-autotune"
 
         try:
-            if is_rocm:
+            if self._is_rocm:
                 logger.info(
                     "Compiling model (mode=%s) — this may take 10-20 minutes on first run (ROCm). "
                     "Compiled kernels are cached for future runs.",
