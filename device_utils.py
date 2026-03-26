@@ -1,16 +1,53 @@
 """Centralized cross-platform device selection for CorridorKey."""
 
+import json
 import logging
 import os
 import subprocess
 from dataclasses import dataclass
 
-import torch
-
 logger = logging.getLogger(__name__)
 
 DEVICE_ENV_VAR = "CORRIDORKEY_DEVICE"
 VALID_DEVICES = ("auto", "cuda", "mps", "cpu")
+
+
+def is_rocm_system() -> bool:
+    """Detect if the system has AMD ROCm available (before or after torch import).
+
+    Checks: /opt/rocm (Linux), HIP_PATH (Windows, default C:\\hip),
+    HIP_VISIBLE_DEVICES (any platform), CORRIDORKEY_ROCM=1 (explicit opt-in).
+    """
+    return (
+        os.path.exists("/opt/rocm")
+        or os.environ.get("HIP_PATH") is not None
+        or os.environ.get("HIP_VISIBLE_DEVICES") is not None
+        or os.environ.get("CORRIDORKEY_ROCM") == "1"
+    )
+
+
+def setup_rocm_env() -> None:
+    """Set ROCm environment variables and apply optional patches.
+
+    Must be called before importing torch. Safe to call on non-ROCm systems (no-op).
+    """
+    if not is_rocm_system():
+        return
+    os.environ.setdefault("TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL", "1")
+    os.environ.setdefault("MIOPEN_FIND_MODE", "2")
+    # Level 4 = suppress info/debug but keep warnings and errors visible
+    os.environ.setdefault("MIOPEN_LOG_LEVEL", "4")
+    # Enable GTT (system RAM as GPU overflow) on Linux for 16GB cards.
+    # pytorch-rocm-gtt must be installed separately: pip install pytorch-rocm-gtt
+    try:
+        import pytorch_rocm_gtt
+
+        pytorch_rocm_gtt.patch()
+    except Exception:
+        pass  # not installed, or patch failed — non-fatal
+
+
+import torch  # noqa: E402 — deferred so setup_rocm_env() can run first
 
 
 def detect_best_device() -> str:
@@ -79,15 +116,8 @@ class GPUInfo:
     vram_free_gb: float
 
 
-def enumerate_gpus() -> list[GPUInfo]:
-    """List all available CUDA GPUs with VRAM info via nvidia-smi.
-
-    Falls back to torch.cuda if nvidia-smi is unavailable.
-    Returns an empty list on non-CUDA systems.
-    """
-    gpus: list[GPUInfo] = []
-
-    # Try nvidia-smi first (sees all GPUs regardless of CUDA_VISIBLE_DEVICES)
+def _enumerate_nvidia() -> list[GPUInfo] | None:
+    """Enumerate NVIDIA GPUs via nvidia-smi. Returns None if unavailable."""
     try:
         result = subprocess.run(
             [
@@ -99,28 +129,129 @@ def enumerate_gpus() -> list[GPUInfo]:
             text=True,
             timeout=5,
         )
+        if result.returncode != 0:
+            return None
+        gpus: list[GPUInfo] = []
+        for line in result.stdout.strip().split("\n"):
+            parts = [p.strip() for p in line.split(",")]
+            if len(parts) >= 4:
+                gpus.append(
+                    GPUInfo(
+                        index=int(parts[0]),
+                        name=parts[1],
+                        vram_total_gb=float(parts[2]) / 1024,
+                        vram_free_gb=float(parts[3]) / 1024,
+                    )
+                )
+        return gpus
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
+
+
+def _enumerate_amd() -> list[GPUInfo] | None:
+    """Enumerate AMD GPUs via amd-smi (ROCm). Returns None if unavailable.
+
+    Tries amd-smi first (modern), then rocm-smi (legacy).
+    """
+    # Try amd-smi (ROCm 6.0+)
+    try:
+        result = subprocess.run(
+            ["amd-smi", "static", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
         if result.returncode == 0:
-            for line in result.stdout.strip().split("\n"):
+            data = json.loads(result.stdout)
+            gpus: list[GPUInfo] = []
+            for i, gpu in enumerate(data):
+                try:
+                    name = gpu.get("asic", {}).get("market_name", f"AMD GPU {i}")
+                    vram_info = gpu.get("vram", {})
+                    total_mb = vram_info.get("size", {}).get("value", 0)
+                    total_gb = float(total_mb) / 1024 if total_mb else 0
+                    gpus.append(GPUInfo(index=i, name=name, vram_total_gb=total_gb, vram_free_gb=total_gb))
+                except (KeyError, TypeError, ValueError):
+                    logger.debug("Failed to parse amd-smi entry %d, skipping", i)
+            if gpus:
+                # Try to get live VRAM usage from monitor
+                try:
+                    mon = subprocess.run(
+                        ["amd-smi", "monitor", "--vram", "--json"],
+                        capture_output=True,
+                        text=True,
+                        timeout=5,
+                    )
+                    if mon.returncode == 0:
+                        mon_data = json.loads(mon.stdout)
+                        for entry in mon_data:
+                            idx = entry.get("gpu", 0)
+                            used_pct = entry.get("vram_use", 0)
+                            if idx < len(gpus) and gpus[idx].vram_total_gb > 0:
+                                used_gb = gpus[idx].vram_total_gb * float(used_pct) / 100
+                                gpus[idx].vram_free_gb = gpus[idx].vram_total_gb - used_gb
+                except Exception:
+                    pass
+                return gpus
+    except (FileNotFoundError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        pass
+
+    # Fallback: rocm-smi (legacy, deprecated but still ships)
+    try:
+        result = subprocess.run(
+            ["rocm-smi", "--showid", "--showmeminfo", "vram", "--csv"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            gpus = []
+            for line in result.stdout.strip().split("\n")[1:]:  # skip header
                 parts = [p.strip() for p in line.split(",")]
-                if len(parts) >= 4:
+                if len(parts) >= 3:
+                    idx = int(parts[0]) if parts[0].isdigit() else len(gpus)
+                    total_b = int(parts[1]) if parts[1].isdigit() else 0
+                    used_b = int(parts[2]) if parts[2].isdigit() else 0
                     gpus.append(
                         GPUInfo(
-                            index=int(parts[0]),
-                            name=parts[1],
-                            vram_total_gb=float(parts[2]) / 1024,
-                            vram_free_gb=float(parts[3]) / 1024,
+                            index=idx,
+                            name=f"AMD GPU {idx}",
+                            vram_total_gb=total_b / (1024**3),
+                            vram_free_gb=(total_b - used_b) / (1024**3),
                         )
                     )
-            return gpus
+            if gpus:
+                return gpus
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
-    # Fallback to torch
+    return None
+
+
+def enumerate_gpus() -> list[GPUInfo]:
+    """List all available GPUs with VRAM info.
+
+    Tries nvidia-smi (NVIDIA), then amd-smi/rocm-smi (AMD ROCm),
+    then falls back to torch.cuda API.
+    Returns an empty list on non-GPU systems.
+    """
+    # NVIDIA
+    gpus = _enumerate_nvidia()
+    if gpus is not None:
+        return gpus
+
+    # AMD ROCm
+    gpus = _enumerate_amd()
+    if gpus is not None:
+        return gpus
+
+    # Fallback to torch (works for both NVIDIA and ROCm via HIP)
     if torch.cuda.is_available():
+        fallback: list[GPUInfo] = []
         for i in range(torch.cuda.device_count()):
             props = torch.cuda.get_device_properties(i)
             total = props.total_memory / (1024**3)
-            gpus.append(
+            fallback.append(
                 GPUInfo(
                     index=i,
                     name=props.name,
@@ -128,8 +259,9 @@ def enumerate_gpus() -> list[GPUInfo]:
                     vram_free_gb=total,  # can't query free without setting device
                 )
             )
+        return fallback
 
-    return gpus
+    return []
 
 
 @dataclass
@@ -170,12 +302,13 @@ def get_cpu_stats() -> CPUStats:
 def check_gpu_available(gpu_index: int = 0, min_free_gb: float = 0.0) -> tuple[bool, str]:
     """Check if a GPU is available for CorridorKey work.
 
-    Checks GPU utilization via nvidia-smi. If another process is using
-    significant GPU compute (>50% utilization), the GPU is considered busy.
+    Checks GPU utilization via nvidia-smi or amd-smi. If another process
+    is using significant GPU compute (>50% utilization), the GPU is busy.
 
     Returns:
         (available, reason) — True if GPU can accept work, else False with reason.
     """
+    # Try NVIDIA
     try:
         result = subprocess.run(
             [
@@ -188,25 +321,39 @@ def check_gpu_available(gpu_index: int = 0, min_free_gb: float = 0.0) -> tuple[b
             text=True,
             timeout=5,
         )
-        if result.returncode != 0:
-            return True, "nvidia-smi unavailable"
-
-        parts = [p.strip() for p in result.stdout.strip().split(",")]
-        if len(parts) < 2:
-            return True, "parse error"
-
-        util_pct = int(parts[0])
-        free_mb = float(parts[1])
-        free_gb = free_mb / 1024
-
-        if util_pct > 50:
-            return False, f"GPU {gpu_index} busy ({util_pct}% utilization)"
-        if min_free_gb > 0 and free_gb < min_free_gb:
-            return False, f"GPU {gpu_index} low VRAM ({free_gb:.1f}GB free, need {min_free_gb:.1f}GB)"
-        return True, "ok"
-
+        if result.returncode == 0:
+            parts = [p.strip() for p in result.stdout.strip().split(",")]
+            if len(parts) >= 2:
+                util_pct = int(parts[0])
+                free_gb = float(parts[1]) / 1024
+                if util_pct > 50:
+                    return False, f"GPU {gpu_index} busy ({util_pct}% utilization)"
+                if min_free_gb > 0 and free_gb < min_free_gb:
+                    return False, f"GPU {gpu_index} low VRAM ({free_gb:.1f}GB free, need {min_free_gb:.1f}GB)"
+                return True, "ok"
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        return True, "nvidia-smi unavailable"
+        pass
+
+    # Try AMD
+    try:
+        result = subprocess.run(
+            ["amd-smi", "monitor", "--gpu-use", "--vram", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            if gpu_index < len(data):
+                entry = data[gpu_index]
+                util_pct = int(entry.get("gpu_use", 0))
+                if util_pct > 50:
+                    return False, f"GPU {gpu_index} busy ({util_pct}% utilization)"
+                return True, "ok"
+    except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+        pass
+
+    return True, "gpu monitoring unavailable"
 
 
 def clear_device_cache(device: torch.device | str) -> None:

@@ -19,17 +19,31 @@ import os
 import shutil
 import sys
 import warnings
-from typing import Annotated, Optional
 
-import typer
-from rich.console import Console
-from rich.logging import RichHandler
-from rich.panel import Panel
-from rich.progress import BarColumn, MofNCompleteColumn, Progress, SpinnerColumn, TaskID, TextColumn, TimeElapsedColumn
-from rich.prompt import Confirm, IntPrompt, Prompt
-from rich.table import Table
+# ROCm env vars must be set before any torch import (including transitive via diffusers/GVM)
+from device_utils import setup_rocm_env  # noqa: E402 — no torch import in this path
 
-from clip_manager import (
+setup_rocm_env()
+
+from typing import Annotated, Optional  # noqa: E402
+
+import typer  # noqa: E402
+from rich.console import Console  # noqa: E402
+from rich.logging import RichHandler  # noqa: E402
+from rich.panel import Panel  # noqa: E402
+from rich.progress import (  # noqa: E402
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskID,
+    TextColumn,
+    TimeElapsedColumn,
+)
+from rich.prompt import Confirm, IntPrompt, Prompt  # noqa: E402
+from rich.table import Table  # noqa: E402
+
+from clip_manager import (  # noqa: E402
     LINUX_MOUNT_ROOT,
     ClipEntry,
     InferenceSettings,
@@ -43,8 +57,8 @@ from clip_manager import (
     run_videomama,
     scan_clips,
 )
-from CorridorKeyModule.backend import resolve_backend
-from device_utils import resolve_device
+from CorridorKeyModule.backend import resolve_backend  # noqa: E402
+from device_utils import resolve_device  # noqa: E402
 
 logger = logging.getLogger(__name__)
 console = Console()
