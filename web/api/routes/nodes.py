@@ -245,6 +245,20 @@ def register_node(req: NodeRegisterRequest, request: Request):
 
         record_security_warning(req.node_id, security_warnings)
 
+    # --- VRAM check ---
+    # Minimum 10GB VRAM required (GVM needs ~8GB + headroom for frames/OS).
+    # Nodes below this will fail every job and waste everyone's time.
+    _MIN_NODE_VRAM_GB = float(_os.environ.get("CK_MIN_NODE_VRAM_GB", "10.0").strip())
+    node_vram = req.vram_total_gb
+    if req.gpus:
+        node_vram = max(g.vram_total_gb for g in req.gpus)
+    if _MIN_NODE_VRAM_GB > 0 and node_vram < _MIN_NODE_VRAM_GB:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Node rejected: GPU has {node_vram:.1f}GB VRAM, minimum {_MIN_NODE_VRAM_GB:.0f}GB required. "
+            f"GVM alpha generation needs ~8GB and inference needs ~4GB plus headroom.",
+        )
+
     # --- Registration ---
     # Org from per-node token takes precedence; legacy auth cannot self-assign org
     org_id = getattr(request.state, "node_org_id", None)
