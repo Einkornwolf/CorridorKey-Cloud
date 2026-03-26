@@ -13,7 +13,7 @@ VALID_DEVICES = ("auto", "cuda", "mps", "cpu")
 
 
 def is_rocm_system() -> bool:
-    """Detect if the system has AMD ROCm available (before or after torch import).
+    """Detect if the system has AMD ROCm available.
 
     Checks: /opt/rocm (Linux), HIP_PATH (Windows, default C:\\hip),
     HIP_VISIBLE_DEVICES (any platform), CORRIDORKEY_ROCM=1 (explicit opt-in).
@@ -29,7 +29,9 @@ def is_rocm_system() -> bool:
 def setup_rocm_env() -> None:
     """Set ROCm environment variables and apply optional patches.
 
-    Must be called before importing torch. Safe to call on non-ROCm systems (no-op).
+    These env vars are read by PyTorch/MIOpen at operation time (not import
+    time), so calling this after ``import torch`` is fine. Safe to call on
+    non-ROCm systems (no-op).
     """
     if not is_rocm_system():
         return
@@ -43,11 +45,13 @@ def setup_rocm_env() -> None:
         import pytorch_rocm_gtt
 
         pytorch_rocm_gtt.patch()
+    except ImportError:
+        pass  # not installed — expected on most systems
     except Exception:
-        pass  # not installed, or patch failed — non-fatal
+        logger.warning("pytorch-rocm-gtt is installed but patch() failed", exc_info=True)
 
 
-import torch  # noqa: E402 — deferred so setup_rocm_env() can run first
+import torch  # noqa: E402
 
 
 def detect_best_device() -> str:
