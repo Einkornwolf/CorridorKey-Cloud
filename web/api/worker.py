@@ -21,9 +21,10 @@ logger = logging.getLogger(__name__)
 # CPU-only job types that don't need VRAM
 _CPU_JOB_TYPES = {JobType.VIDEO_EXTRACT, JobType.VIDEO_STITCH}
 
-# Configurable VRAM limit (GB). Jobs won't start if free VRAM is below this.
+# Minimum free VRAM (GB) required to start a local GPU job.
+# GVM needs ~8GB, inference needs ~4GB. Default 6GB covers both with margin.
 # Set to 0 to disable the check (always allow).
-_vram_limit_gb: float = 0.0
+_vram_limit_gb: float = float(os.environ.get("CK_VRAM_LIMIT_GB", "6.0").strip())
 _vram_lock = threading.Lock()
 
 # Local GPU processing toggle. When False, only CPU jobs run locally;
@@ -120,7 +121,7 @@ def _can_start_gpu_job() -> bool:
         return True  # non-CUDA (e.g. MLX) — can't check, allow it
     can = free >= _vram_limit_gb
     if not can:
-        logger.debug(f"VRAM check: {free:.1f} GB free < {_vram_limit_gb:.1f} GB limit, waiting")
+        logger.warning(f"VRAM check: {free:.1f} GB free < {_vram_limit_gb:.1f} GB required — waiting for VRAM to free up")
     return can
 
 
