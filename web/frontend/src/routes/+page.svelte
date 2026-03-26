@@ -136,10 +136,15 @@
 {/if}
 
 <style>
+	/* Override body overflow:hidden from app.css — the app shell
+	   handles its own scrolling, but the landing page is a normal
+	   scrollable document. */
+	:global(body:has(.landing)) {
+		overflow: auto;
+	}
+
 	.landing {
 		min-height: 100vh;
-		overflow-y: auto;
-		overflow-x: hidden;
 		background: var(--surface-0);
 	}
 
