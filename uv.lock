@@ -2,22 +2,14 @@ version = 1
 revision = 3
 requires-python = ">=3.10, <3.14"
 resolution-markers = [
-    "python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "python_full_version == '3.11.*' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "(python_full_version >= '3.12' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version >= '3.12' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version >= '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version == '3.11.*' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version < '3.11' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version == '3.11.*' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
 ]
 conflicts = [[
     { package = "corridorkey", extra = "cuda" },
     { package = "corridorkey", extra = "mlx" },
+    { package = "corridorkey", extra = "rocm" },
 ]]
 
 [manifest]
@@ -29,14 +21,15 @@ version = "1.12.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "huggingface-hub" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "packaging" },
     { name = "psutil" },
     { name = "pyyaml" },
     { name = "safetensors" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda'" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+rocm6.3", source = { registry = "https://download.pytorch.org/whl/rocm6.3" }, marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/4a/8e/ac2a9566747a93f8be36ee08532eb0160558b07630a081a6056a9f89bf1d/accelerate-1.12.0.tar.gz", hash = "sha256:70988c352feb481887077d2ab845125024b2a137a5090d6d7a32b57d03a45df6", size = 398399, upload-time = "2025-11-21T11:27:46.973Z" }
 wheels = [
@@ -50,7 +43,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "mako" },
     { name = "sqlalchemy" },
-    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/94/13/8b084e0f2efb0275a1d534838844926f798bd766566b1375174e2448cd31/alembic-1.18.4.tar.gz", hash = "sha256:cb6e1fd84b6174ab8dbb2329f86d631ba9559dd78df550b57804d607672cedbc", size = 2056725, upload-time = "2026-02-10T16:00:47.195Z" }
@@ -81,9 +74,9 @@ name = "anyio"
 version = "4.12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "idna" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/96/f0/5eb65b2bb0d09ac6776f2eb54adee6abe8228ea05b20a5ad0e4945de8aac/anyio-4.12.1.tar.gz", hash = "sha256:41cfcc3a4c85d3f05c932da7c26d0201ac36f72abd4435ba90d0464a3ffed703", size = 228685, upload-time = "2026-01-06T11:45:21.246Z" }
 wheels = [
@@ -135,30 +128,30 @@ wheels = [
 
 [[package]]
 name = "boto3"
-version = "1.42.73"
+version = "1.42.77"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "botocore" },
     { name = "jmespath" },
     { name = "s3transfer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e4/8b/d00575be514744ca4839e7d85bf4a8a3c7b6b4574433291e58d14c68ae09/boto3-1.42.73.tar.gz", hash = "sha256:d37b58d6cd452ca808dd6823ae19ca65b6244096c5125ef9052988b337298bae", size = 112775, upload-time = "2026-03-20T19:39:52.814Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/f6/b280afd91b2284744c0bb26afa1272bd60270726b4d3999fc27b68200854/boto3-1.42.77.tar.gz", hash = "sha256:c6d9b05e5b86767d4c6ef762f155c891366e5951162f71d030e109fe531f4fd9", size = 112773, upload-time = "2026-03-26T19:25:35.365Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/aa/05/1fcf03d90abaa3d0b42a6bfd10231dd709493ecbacf794aa2eea5eae6841/boto3-1.42.73-py3-none-any.whl", hash = "sha256:1f81b79b873f130eeab14bb556417a7c66d38f3396b7f2fe3b958b3f9094f455", size = 140556, upload-time = "2026-03-20T19:39:50.298Z" },
+    { url = "https://files.pythonhosted.org/packages/ac/e6/e27fb0956bd52e6ac222d47eaa04d267887ca1d52a6b3c25d2006c8dc9e6/boto3-1.42.77-py3-none-any.whl", hash = "sha256:95eb3ef693068586f70ca3f29c43701c34a9a73d0df413ea7eaff138efa4a6b9", size = 140555, upload-time = "2026-03-26T19:25:32.069Z" },
 ]
 
 [[package]]
 name = "botocore"
-version = "1.42.73"
+version = "1.42.77"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "jmespath" },
     { name = "python-dateutil" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/28/23/0c88ca116ef63b1ae77c901cd5d2095d22a8dbde9e80df74545db4a061b4/botocore-1.42.73.tar.gz", hash = "sha256:575858641e4949aaf2af1ced145b8524529edf006d075877af6b82ff96ad854c", size = 15008008, upload-time = "2026-03-20T19:39:40.082Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/42/97/1800633988e890b4eea0706b2671342eddfeb33c1eb1d2fe28a8117f7907/botocore-1.42.77.tar.gz", hash = "sha256:cbb0ac410fab4aa0839a521329f970b271ec298d67465ed7fa7d095c0dad9f48", size = 15023911, upload-time = "2026-03-26T19:25:21.416Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8e/65/971f3d55015f4d133a6ff3ad74cd39f4b8dd8f53f7775a3c2ad378ea5145/botocore-1.42.73-py3-none-any.whl", hash = "sha256:7b62e2a12f7a1b08eb7360eecd23bb16fe3b7ab7f5617cf91b25476c6f86a0fe", size = 14681861, upload-time = "2026-03-20T19:39:35.341Z" },
+    { url = "https://files.pythonhosted.org/packages/44/7c/6280e6b61f8c232eebd72cae950ed52ce2f38fecf2d178713de3cb1f6298/botocore-1.42.77-py3-none-any.whl", hash = "sha256:807bc2c3825bec6f025506ceeba5f7f111a00de8d58f35c679ee16c8ff6e7b10", size = 14699672, upload-time = "2026-03-26T19:25:15.996Z" },
 ]
 
 [[package]]
@@ -248,7 +241,7 @@ name = "click"
 version = "8.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3d/fa/656b739db8587d7b5dfa22e22ed02566950fbfbcdc20311993483657a5c0/click-8.3.1.tar.gz", hash = "sha256:12ff4785d337a1bb490bb7e9c2b1ee5da3112e94a8622f26a6c77f5d2fc6842a", size = 295065, upload-time = "2025-11-15T20:45:42.706Z" }
 wheels = [
@@ -269,13 +262,10 @@ name = "contourpy"
 version = "1.3.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version < '3.11' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
+    "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/66/54/eb9bfc647b19f2009dd5c7f5ec51c4e6ca831725f1aea7a993034f483147/contourpy-1.3.2.tar.gz", hash = "sha256:b6945942715a034c671b7fc54f9588126b0b8bf23db2696e3ca8328f3ff0ab54", size = 13466130, upload-time = "2025-04-15T17:47:53.79Z" }
 wheels = [
@@ -342,17 +332,11 @@ name = "contourpy"
 version = "1.3.3"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "python_full_version == '3.11.*' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "(python_full_version >= '3.12' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version >= '3.12' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version >= '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version == '3.11.*' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version == '3.11.*' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/58/01/1253e6698a07380cd31a736d248a3f2a50a7c88779a1813da27503cadc2a/contourpy-1.3.3.tar.gz", hash = "sha256:083e12155b210502d0bca491432bb04d56dc3432f95a979b429f2848c3dbe880", size = 13466174, upload-time = "2025-07-26T12:03:12.549Z" }
 wheels = [
@@ -421,8 +405,8 @@ dependencies = [
     { name = "imageio" },
     { name = "kornia" },
     { name = "matplotlib" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "opencv-python" },
     { name = "peft" },
     { name = "pillow" },
@@ -430,13 +414,15 @@ dependencies = [
     { name = "rich" },
     { name = "setuptools" },
     { name = "timm" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda'" },
-    { name = "torchvision", version = "0.23.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "torchvision", version = "0.23.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda'" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+rocm6.3", source = { registry = "https://download.pytorch.org/whl/rocm6.3" }, marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torchvision", version = "0.23.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "torchvision", version = "0.23.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torchvision", version = "0.23.0+rocm6.3", source = { registry = "https://download.pytorch.org/whl/rocm6.3" }, marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "tqdm" },
     { name = "transformers" },
-    { name = "triton-windows", marker = "sys_platform == 'win32' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "triton-windows", marker = "sys_platform == 'win32' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "typer" },
 ]
 
@@ -447,6 +433,11 @@ cuda = [
 ]
 mlx = [
     { name = "corridorkey-mlx", marker = "python_full_version >= '3.11'" },
+]
+rocm = [
+    { name = "pytorch-triton-rocm", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "torch", version = "2.8.0+rocm6.3", source = { registry = "https://download.pytorch.org/whl/rocm6.3" } },
+    { name = "torchvision", version = "0.23.0+rocm6.3", source = { registry = "https://download.pytorch.org/whl/rocm6.3" } },
 ]
 s3 = [
     { name = "boto3" },
@@ -495,21 +486,24 @@ requires-dist = [
     { name = "psycopg2-binary", marker = "extra == 'web'", specifier = ">=2.9" },
     { name = "pyjwt", marker = "extra == 'web'", specifier = ">=2.8" },
     { name = "python-multipart", marker = "extra == 'web'", specifier = ">=0.0.9" },
+    { name = "pytorch-triton-rocm", marker = "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'rocm'", specifier = "==3.4.0", index = "https://download.pytorch.org/whl/rocm6.3", conflict = { package = "corridorkey", extra = "rocm" } },
     { name = "rich", specifier = ">=13" },
     { name = "sentry-sdk", extras = ["fastapi"], marker = "extra == 'web'", specifier = ">=2.0" },
     { name = "setuptools" },
     { name = "timm", git = "https://github.com/Raiden129/pytorch-image-models-fix?branch=fix%2Fhiera-flash-attention-global-4d" },
     { name = "torch", specifier = "==2.8.0" },
     { name = "torch", marker = "extra == 'cuda'", specifier = "==2.8.0", index = "https://download.pytorch.org/whl/cu128", conflict = { package = "corridorkey", extra = "cuda" } },
+    { name = "torch", marker = "extra == 'rocm'", specifier = "==2.8.0", index = "https://download.pytorch.org/whl/rocm6.3", conflict = { package = "corridorkey", extra = "rocm" } },
     { name = "torchvision", specifier = "==0.23.0" },
     { name = "torchvision", marker = "extra == 'cuda'", specifier = "==0.23.0", index = "https://download.pytorch.org/whl/cu128", conflict = { package = "corridorkey", extra = "cuda" } },
+    { name = "torchvision", marker = "extra == 'rocm'", specifier = "==0.23.0", index = "https://download.pytorch.org/whl/rocm6.3", conflict = { package = "corridorkey", extra = "rocm" } },
     { name = "tqdm" },
     { name = "transformers" },
     { name = "triton-windows", marker = "sys_platform == 'win32'", specifier = "==3.4.0.post21" },
     { name = "typer", specifier = ">=0.12" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'web'", specifier = ">=0.34" },
 ]
-provides-extras = ["cuda", "mlx", "web", "s3"]
+provides-extras = ["cuda", "mlx", "web", "rocm", "s3"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -619,7 +613,7 @@ wheels = [
 
 [package.optional-dependencies]
 toml = [
-    { name = "tomli", marker = "python_full_version <= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "tomli", marker = "python_full_version <= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 
 [[package]]
@@ -649,8 +643,8 @@ dependencies = [
     { name = "httpx" },
     { name = "huggingface-hub" },
     { name = "importlib-metadata" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "pillow" },
     { name = "regex" },
     { name = "requests" },
@@ -684,7 +678,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -693,7 +687,7 @@ wheels = [
 
 [[package]]
 name = "fastapi"
-version = "0.135.1"
+version = "0.135.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "annotated-doc" },
@@ -702,9 +696,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "typing-inspection" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e7/7b/f8e0211e9380f7195ba3f3d40c292594fd81ba8ec4629e3854c353aaca45/fastapi-0.135.1.tar.gz", hash = "sha256:d04115b508d936d254cea545b7312ecaa58a7b3a0f84952535b4c9afae7668cd", size = 394962, upload-time = "2026-03-01T18:18:29.369Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c4/73/5903c4b13beae98618d64eb9870c3fac4f605523dd0312ca5c80dadbd5b9/fastapi-0.135.2.tar.gz", hash = "sha256:88a832095359755527b7f63bb4c6bc9edb8329a026189eed83d6c1afcf419d56", size = 395833, upload-time = "2026-03-23T14:12:41.697Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e4/72/42e900510195b23a56bde950d26a51f8b723846bfcaa0286e90287f0422b/fastapi-0.135.1-py3-none-any.whl", hash = "sha256:46e2fc5745924b7c840f71ddd277382af29ce1cdb7d5eab5bf697e3fb9999c9e", size = 116999, upload-time = "2026-03-01T18:18:30.831Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/ea/18f6d0457f9efb2fc6fa594857f92810cadb03024975726db6546b3d6fcf/fastapi-0.135.2-py3-none-any.whl", hash = "sha256:0af0447d541867e8db2a6a25c23a8c4bd80e2394ac5529bd87501bbb9e240ca5", size = 117407, upload-time = "2026-03-23T14:12:43.284Z" },
 ]
 
 [[package]]
@@ -913,7 +907,7 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "filelock" },
     { name = "fsspec" },
-    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "hf-xet", marker = "platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "httpx" },
     { name = "packaging" },
     { name = "pyyaml" },
@@ -931,7 +925,7 @@ name = "hypothesis"
 version = "6.151.9"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "sortedcontainers" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/19/e1/ef365ff480903b929d28e057f57b76cae51a30375943e33374ec9a165d9c/hypothesis-6.151.9.tar.gz", hash = "sha256:2f284428dda6c3c48c580de0e18470ff9c7f5ef628a647ee8002f38c3f9097ca", size = 463534, upload-time = "2026-02-16T22:59:23.09Z" }
@@ -953,8 +947,8 @@ name = "imageio"
 version = "2.37.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "pillow" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a3/6f/606be632e37bf8d05b253e8626c2291d74c691ddc7bcdf7d6aaf33b32f6a/imageio-2.37.2.tar.gz", hash = "sha256:0212ef2727ac9caa5ca4b2c75ae89454312f440a756fcfc8ef1993e718f50f8a", size = 389600, upload-time = "2025-11-04T14:29:39.898Z" }
@@ -1093,8 +1087,9 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "kornia-rs" },
     { name = "packaging" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda'" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+rocm6.3", source = { registry = "https://download.pytorch.org/whl/rocm6.3" }, marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c6/e6/45e757d4924176e4d4e111e10effaab7db382313243e0188a06805010073/kornia-0.8.2.tar.gz", hash = "sha256:5411b2ce0dd909d1608016308cd68faeef90f88c47f47e8ecd40553fd4d8b937", size = 667151, upload-time = "2025-11-08T12:10:03.042Z" }
 wheels = [
@@ -1235,13 +1230,13 @@ name = "matplotlib"
 version = "3.10.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "contourpy", version = "1.3.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "contourpy", version = "1.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "contourpy", version = "1.3.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "contourpy", version = "1.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "cycler" },
     { name = "fonttools" },
     { name = "kiwisolver" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "packaging" },
     { name = "pillow" },
     { name = "pyparsing" },
@@ -1354,10 +1349,7 @@ name = "networkx"
 version = "3.4.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version < '3.11' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
+    "python_full_version < '3.11'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/fd/1d/06475e1cd5264c0b870ea2cc6fdb3e37177c1e565c43f56ff17a10e3937f/networkx-3.4.2.tar.gz", hash = "sha256:307c3669428c5362aab27c8a1260aa8f47c4e91d3891f48be0141738d8d053e1", size = 2151368, upload-time = "2024-10-21T12:39:38.695Z" }
 wheels = [
@@ -1369,14 +1361,8 @@ name = "networkx"
 version = "3.6.1"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "python_full_version == '3.11.*' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "(python_full_version >= '3.12' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version >= '3.12' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version >= '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version == '3.11.*' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version == '3.11.*' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6a/51/63fe664f3908c97be9d2e4f1158eb633317598cfa6e1fc14af5383f17512/networkx-3.6.1.tar.gz", hash = "sha256:26b7c357accc0c8cde558ad486283728b65b6a95d85ee1cd66bafab4c8168509", size = 2517025, upload-time = "2025-12-08T17:02:39.908Z" }
 wheels = [
@@ -1388,10 +1374,7 @@ name = "numpy"
 version = "2.2.6"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version < '3.11' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
+    "python_full_version < '3.11'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/76/21/7d2a95e4bba9dc13d043ee156a356c0a8f0c6309dff6b21b4d71a073b8a8/numpy-2.2.6.tar.gz", hash = "sha256:e29554e2bef54a90aa5cc07da6ce955accb83f21ab5de01a62c8478897b264fd", size = 20276440, upload-time = "2025-05-17T22:38:04.611Z" }
 wheels = [
@@ -1456,14 +1439,8 @@ name = "numpy"
 version = "2.4.2"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "python_full_version == '3.11.*' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "(python_full_version >= '3.12' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version >= '3.12' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version >= '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version == '3.11.*' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version == '3.11.*' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/57/fd/0005efbd0af48e55eb3c7208af93f2862d4b1a56cd78e84309a2d959208d/numpy-2.4.2.tar.gz", hash = "sha256:659a6107e31a83c4e33f763942275fd278b21d095094044eb35569e86a21ddae", size = 20723651, upload-time = "2026-01-31T23:13:10.135Z" }
 wheels = [
@@ -1564,7 +1541,7 @@ name = "nvidia-cudnn-cu12"
 version = "9.10.2.21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "platform_machine != 'aarch64' or sys_platform != 'linux' or extra != 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "nvidia-cublas-cu12", marker = "extra == 'extra-11-corridorkey-cuda' or extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-rocm'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/41/e79269ce215c857c935fd86bcfe91a451a584dfc27f1e068f568b9ad1ab7/nvidia_cudnn_cu12-9.10.2.21-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:c9132cc3f8958447b4910a1720036d9eff5928cc3179b0a51fb6d167c6cc87d8", size = 705026878, upload-time = "2025-06-06T21:52:51.348Z" },
@@ -1577,7 +1554,7 @@ name = "nvidia-cufft-cu12"
 version = "11.3.3.83"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "platform_machine != 'aarch64' or sys_platform != 'linux' or extra != 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "extra == 'extra-11-corridorkey-cuda' or extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-rocm'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/bc/7771846d3a0272026c416fbb7e5f4c1f146d6d80704534d0b187dd6f4800/nvidia_cufft_cu12-11.3.3.83-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:848ef7224d6305cdb2a4df928759dca7b1201874787083b6e7550dd6765ce69a", size = 193109211, upload-time = "2025-03-07T01:44:56.873Z" },
@@ -1609,9 +1586,9 @@ name = "nvidia-cusolver-cu12"
 version = "11.7.3.90"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas-cu12", marker = "platform_machine != 'aarch64' or sys_platform != 'linux' or extra != 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cusparse-cu12", marker = "platform_machine != 'aarch64' or sys_platform != 'linux' or extra != 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-nvjitlink-cu12", marker = "platform_machine != 'aarch64' or sys_platform != 'linux' or extra != 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "nvidia-cublas-cu12", marker = "extra == 'extra-11-corridorkey-cuda' or extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-rocm'" },
+    { name = "nvidia-cusparse-cu12", marker = "extra == 'extra-11-corridorkey-cuda' or extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-rocm'" },
+    { name = "nvidia-nvjitlink-cu12", marker = "extra == 'extra-11-corridorkey-cuda' or extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-rocm'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/32/f7cd6ce8a7690544d084ea21c26e910a97e077c9b7f07bf5de623ee19981/nvidia_cusolver_cu12-11.7.3.90-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:db9ed69dbef9715071232caa9b69c52ac7de3a95773c2db65bdba85916e4e5c0", size = 267229841, upload-time = "2025-03-07T01:46:54.356Z" },
@@ -1624,7 +1601,7 @@ name = "nvidia-cusparse-cu12"
 version = "12.5.8.93"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink-cu12", marker = "platform_machine != 'aarch64' or sys_platform != 'linux' or extra != 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "extra == 'extra-11-corridorkey-cuda' or extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-rocm'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/f7/cd777c4109681367721b00a106f491e0d0d15cfa1fd59672ce580ce42a97/nvidia_cusparse_cu12-12.5.8.93-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:9b6c161cb130be1a07a27ea6923df8141f3c295852f4b260c65f18f3e0a091dc", size = 288117129, upload-time = "2025-03-07T01:47:40.407Z" },
@@ -1676,8 +1653,8 @@ name = "opencv-python"
 version = "4.13.0.92"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fc/6f/5a28fef4c4a382be06afe3938c64cc168223016fa520c5abaf37e8862aa5/opencv_python-4.13.0.92-cp37-abi3-macosx_13_0_arm64.whl", hash = "sha256:caf60c071ec391ba51ed00a4a920f996d0b64e3e46068aac1f646b5de0326a19", size = 46247052, upload-time = "2026-02-05T07:01:25.046Z" },
@@ -1706,14 +1683,15 @@ source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "accelerate" },
     { name = "huggingface-hub" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "packaging" },
     { name = "psutil" },
     { name = "pyyaml" },
     { name = "safetensors" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda'" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+rocm6.3", source = { registry = "https://download.pytorch.org/whl/rocm6.3" }, marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "tqdm" },
     { name = "transformers" },
 ]
@@ -1801,12 +1779,12 @@ version = "0.7"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "imageio" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "packaging" },
     { name = "slicerator" },
-    { name = "tifffile", version = "2025.5.10", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "tifffile", version = "2026.2.24", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "tifffile", version = "2025.5.10", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "tifffile", version = "2026.2.24", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/b8/02/5bf3639f5b77e9b183011c08541c5039ba3d04f5316c70312b48a8e003a9/pims-0.7.tar.gz", hash = "sha256:55907a4c301256086d2aa4e34a5361b9109f24e375c2071e1117b9491e82946b", size = 87779, upload-time = "2024-06-10T19:20:42.842Z" }
 
@@ -2021,7 +1999,7 @@ name = "pyjwt"
 version = "2.12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/c2/27/a3b6e5bf6ff856d2509292e95c8f57f0df7017cf5394921fc4e4ef40308a/pyjwt-2.12.1.tar.gz", hash = "sha256:c74a7a2adf861c04d002db713dd85f84beb242228e671280bf709d765b03672b", size = 102564, upload-time = "2026-03-13T19:27:37.25Z" }
 wheels = [
@@ -2055,13 +2033,13 @@ name = "pytest"
 version = "9.0.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "exceptiongroup", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "iniconfig" },
     { name = "packaging" },
     { name = "pluggy" },
     { name = "pygments" },
-    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/d1/db/7ef3487e0fb0049ddb5ce41d3a49c235bf9ad299b6a25d5780a89f19230f/pytest-9.0.2.tar.gz", hash = "sha256:75186651a92bd89611d1d9fc20f0b4345fd827c41ccd5c299a868a05d70edf11", size = 1568901, upload-time = "2025-12-06T21:30:51.014Z" }
 wheels = [
@@ -2110,6 +2088,21 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/94/01/979e98d542a70714b0cb2b6728ed0b7c46792b695e3eaec3e20711271ca3/python_multipart-0.0.22.tar.gz", hash = "sha256:7340bef99a7e0032613f56dc36027b959fd3b30a787ed62d310e951f7c3a3a58", size = 37612, upload-time = "2026-01-25T10:15:56.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1b/d0/397f9626e711ff749a95d96b7af99b9c566a9bb5129b8e4c10fc4d100304/python_multipart-0.0.22-py3-none-any.whl", hash = "sha256:2b2cd894c83d21bf49d702499531c7bafd057d730c201782048f7945d82de155", size = 24579, upload-time = "2026-01-25T10:15:54.811Z" },
+]
+
+[[package]]
+name = "pytorch-triton-rocm"
+version = "3.4.0"
+source = { registry = "https://download.pytorch.org/whl/rocm6.3" }
+dependencies = [
+    { name = "setuptools", marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+]
+wheels = [
+    { url = "https://download.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp310-cp310-linux_x86_64.whl", hash = "sha256:1ee0a5cf569175e63b43bc334dcaaf6f9b0d88eb455a452869c2bab14e1f7eb4" },
+    { url = "https://download.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp311-cp311-linux_x86_64.whl", hash = "sha256:b0362725d8e16d185251e3dcd48455ebf9cdaad2c26052bb47ef08a1d687ed20" },
+    { url = "https://download.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp312-cp312-linux_x86_64.whl", hash = "sha256:7afe951b9fc38f1a5b3a7b98bebbaa092bf51e6192b699b4fade9b1ad6fc9c2c" },
+    { url = "https://download.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp313-cp313-linux_x86_64.whl", hash = "sha256:1e7ccba3501fcd38e8cd8415f97a654043370e1fdc5a936bb75abe1bebeb94c9" },
+    { url = "https://download.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp313-cp313t-linux_x86_64.whl", hash = "sha256:c262cd42e38b6955391338cca1c3a779cceb8c51e4b45200d87305c870ef99d7" },
 ]
 
 [[package]]
@@ -2340,15 +2333,15 @@ wheels = [
 
 [[package]]
 name = "sentry-sdk"
-version = "2.55.0"
+version = "2.56.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e9/b8/285293dc60fc198fffc3fcdbc7c6d4e646e0f74e61461c355d40faa64ceb/sentry_sdk-2.55.0.tar.gz", hash = "sha256:3774c4d8820720ca4101548131b9c162f4c9426eb7f4d24aca453012a7470f69", size = 424505, upload-time = "2026-03-17T14:15:51.707Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/de/df/5008954f5466085966468612a7d1638487596ee6d2fd7fb51783a85351bf/sentry_sdk-2.56.0.tar.gz", hash = "sha256:fdab72030b69625665b2eeb9738bdde748ad254e8073085a0ce95382678e8168", size = 426820, upload-time = "2026-03-24T09:56:36.575Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9a/66/20465097782d7e1e742d846407ea7262d338c6e876ddddad38ca8907b38f/sentry_sdk-2.55.0-py2.py3-none-any.whl", hash = "sha256:97026981cb15699394474a196b88503a393cbc58d182ece0d3abe12b9bd978d4", size = 449284, upload-time = "2026-03-17T14:15:49.604Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/1a/b3a3e9f6520493fed7997af4d2de7965d71549c62f994a8fd15f2ecd519e/sentry_sdk-2.56.0-py2.py3-none-any.whl", hash = "sha256:5afafb744ceb91d22f4cc650c6bd048ac6af5f7412dcc6c59305a2e36f4dbc02", size = 451568, upload-time = "2026-03-24T09:56:34.807Z" },
 ]
 
 [package.optional-dependencies]
@@ -2406,7 +2399,7 @@ name = "sqlalchemy"
 version = "2.0.48"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "greenlet", marker = "platform_machine == 'AMD64' or platform_machine == 'WIN32' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'ppc64le' or platform_machine == 'win32' or platform_machine == 'x86_64' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/1f/73/b4a9737255583b5fa858e0bb8e116eb94b88c910164ed2ed719147bde3de/sqlalchemy-2.0.48.tar.gz", hash = "sha256:5ca74f37f3369b45e1f6b7b06afb182af1fd5dde009e4ffd831830d98cbe5fe7", size = 9886075, upload-time = "2026-03-02T15:28:51.474Z" }
@@ -2450,15 +2443,15 @@ wheels = [
 
 [[package]]
 name = "starlette"
-version = "0.52.1"
+version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.13' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/68/79977123bb7be889ad680d79a40f339082c1978b5cfcf62c2d8d196873ac/starlette-0.52.1.tar.gz", hash = "sha256:834edd1b0a23167694292e94f597773bc3f89f362be6effee198165a35d62933", size = 2653702, upload-time = "2026-01-18T13:34:11.062Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/81/69/17425771797c36cded50b7fe44e850315d039f28b15901ab44839e70b593/starlette-1.0.0.tar.gz", hash = "sha256:6a4beaf1f81bb472fd19ea9b918b50dc3a77a6f2e190a12954b25e6ed5eea149", size = 2655289, upload-time = "2026-03-22T18:29:46.779Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/81/0d/13d1d239a25cbfb19e740db83143e95c772a1fe10202dda4b76792b114dd/starlette-0.52.1-py3-none-any.whl", hash = "sha256:0029d43eb3d273bc4f83a08720b4912ea4b071087a3b48db01b7c839f7954d74", size = 74272, upload-time = "2026-01-18T13:34:09.188Z" },
+    { url = "https://files.pythonhosted.org/packages/0b/c9/584bc9651441b4ba60cc4d557d8a547b5aff901af35bda3a4ee30c819b82/starlette-1.0.0-py3-none-any.whl", hash = "sha256:d3ec55e0bb321692d275455ddfd3df75fff145d009685eb40dc91fc66b03d38b", size = 72651, upload-time = "2026-03-22T18:29:45.111Z" },
 ]
 
 [[package]]
@@ -2478,13 +2471,10 @@ name = "tifffile"
 version = "2025.5.10"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version < '3.11' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
+    "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/44/d0/18fed0fc0916578a4463f775b0fbd9c5fed2392152d039df2fb533bfdd5d/tifffile-2025.5.10.tar.gz", hash = "sha256:018335d34283aa3fd8c263bae5c3c2b661ebc45548fde31504016fcae7bf1103", size = 365290, upload-time = "2025-05-10T19:22:34.386Z" }
 wheels = [
@@ -2496,17 +2486,11 @@ name = "tifffile"
 version = "2026.2.24"
 source = { registry = "https://pypi.org/simple" }
 resolution-markers = [
-    "python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "python_full_version == '3.11.*' and extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx'",
-    "(python_full_version >= '3.12' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version >= '3.12' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version >= '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx') or (python_full_version == '3.11.*' and sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
-    "python_full_version == '3.11.*' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-mlx'",
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/6e/1c/19fc653e2b05ec0defae511b03b330ca60c95f2c47fcaaf21c52c6e84aa8/tifffile-2026.2.24.tar.gz", hash = "sha256:d73cfa6d7a8f5775a1e3c9f3bfca77c992946639fb41a5bbe888878cb6964dc6", size = 387373, upload-time = "2026-02-24T23:59:11.706Z" }
 wheels = [
@@ -2521,10 +2505,12 @@ dependencies = [
     { name = "huggingface-hub" },
     { name = "pyyaml" },
     { name = "safetensors" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda'" },
-    { name = "torchvision", version = "0.23.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "torchvision", version = "0.23.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda'" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+rocm6.3", source = { registry = "https://download.pytorch.org/whl/rocm6.3" }, marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torchvision", version = "0.23.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "torchvision", version = "0.23.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torchvision", version = "0.23.0+rocm6.3", source = { registry = "https://download.pytorch.org/whl/rocm6.3" }, marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 
 [[package]]
@@ -2603,29 +2589,29 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "filelock", marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "fsspec", marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "jinja2", marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cublas-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cuda-cupti-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cuda-nvrtc-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cuda-runtime-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cudnn-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cufft-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cufile-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-curand-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cusolver-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cusparse-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cusparselt-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-nccl-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-nvtx-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "setuptools", marker = "(python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "sympy", marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "typing-extensions", marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
+    { name = "filelock", marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "fsspec", marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "jinja2", marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-11-corridorkey-mlx') or (python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-11-corridorkey-mlx') or (python_full_version >= '3.11' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cublas-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cuda-cupti-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cuda-nvrtc-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cuda-runtime-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cudnn-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cufft-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cufile-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-curand-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cusolver-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cusparse-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cusparselt-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-nccl-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-nvtx-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "setuptools", marker = "(python_full_version >= '3.12' and extra == 'extra-11-corridorkey-mlx') or (python_full_version >= '3.12' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "sympy", marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-mlx') or (platform_machine == 'x86_64' and sys_platform == 'linux' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "typing-extensions", marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/63/28/110f7274254f1b8476c561dada127173f994afa2b1ffc044efb773c15650/torch-2.8.0-cp310-cp310-manylinux_2_28_aarch64.whl", hash = "sha256:0be92c08b44009d4131d1ff7a8060d10bafdb7ddcb7359ef8d8c5169007ea905", size = 102052793, upload-time = "2025-08-06T14:53:15.852Z" },
@@ -2655,37 +2641,34 @@ name = "torch"
 version = "2.8.0+cu128"
 source = { registry = "https://download.pytorch.org/whl/cu128" }
 resolution-markers = [
-    "(python_full_version >= '3.12' and platform_machine != 'aarch64') or (python_full_version >= '3.12' and sys_platform != 'linux')",
-    "python_full_version >= '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64') or (python_full_version == '3.11.*' and sys_platform != 'linux')",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64') or (python_full_version < '3.11' and sys_platform != 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "filelock", marker = "extra == 'extra-11-corridorkey-cuda'" },
-    { name = "fsspec", marker = "extra == 'extra-11-corridorkey-cuda'" },
-    { name = "jinja2", marker = "extra == 'extra-11-corridorkey-cuda'" },
-    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cublas-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cuda-cupti-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cuda-nvrtc-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cuda-runtime-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cudnn-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cufft-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cufile-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-curand-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cusolver-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cusparse-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-cusparselt-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-nccl-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "nvidia-nvtx-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "setuptools", marker = "(python_full_version >= '3.12' and extra == 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "sympy", marker = "extra == 'extra-11-corridorkey-cuda'" },
-    { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "typing-extensions", marker = "extra == 'extra-11-corridorkey-cuda'" },
+    { name = "filelock", marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "fsspec", marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "jinja2", marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cublas-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cuda-cupti-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cuda-nvrtc-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cuda-runtime-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cudnn-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cufft-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cufile-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-curand-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cusolver-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cusparse-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-cusparselt-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-nccl-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-nvjitlink-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "nvidia-nvtx-cu12", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "setuptools", marker = "(python_full_version >= '3.12' and extra == 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "sympy", marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "triton", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-cuda') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "typing-extensions", marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 wheels = [
     { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:0c96999d15cf1f13dd7c913e0b21a9a355538e6cfc10861a17158320292f5954" },
@@ -2701,6 +2684,34 @@ wheels = [
 ]
 
 [[package]]
+name = "torch"
+version = "2.8.0+rocm6.3"
+source = { registry = "https://download.pytorch.org/whl/rocm6.3" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
+]
+dependencies = [
+    { name = "filelock", marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "fsspec", marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "jinja2", marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "pytorch-triton-rocm", marker = "(platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'extra-11-corridorkey-rocm') or (platform_machine != 'x86_64' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform != 'linux' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "setuptools", marker = "(python_full_version >= '3.12' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "sympy", marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "typing-extensions", marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+]
+wheels = [
+    { url = "https://download.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:a492665402d52a71dc3d3c025153ead15ef9d993d1f39abd67dbf8b3d0fadd35" },
+    { url = "https://download.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:8312c2defbd8890fd3cf2fc01cfcc53678fe00891d1c8314901025991e21f081" },
+    { url = "https://download.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:de0bb7f98c977ad9c74312fc34d375747efc5c5ddee60a4cd5163fa729211602" },
+    { url = "https://download.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:2cdaac5545d66f11030914ae03c85d161f24b14053b67f49500a8f52638ef104" },
+    { url = "https://download.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:656892d4f59d1138aaade39fafa4a317a81a13238288a98a654a75cf80349774" },
+]
+
+[[package]]
 name = "torchvision"
 version = "0.23.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2710,10 +2721,10 @@ resolution-markers = [
     "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra != 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "pillow", marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
-    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-cuda'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-11-corridorkey-mlx') or (python_full_version < '3.11' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-11-corridorkey-mlx') or (python_full_version >= '3.11' and extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "pillow", marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0", source = { registry = "https://pypi.org/simple" }, marker = "extra == 'extra-11-corridorkey-mlx' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra != 'extra-11-corridorkey-rocm')" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4d/49/5ad5c3ff4920be0adee9eb4339b4fb3b023a0fc55b9ed8dbc73df92946b8/torchvision-0.23.0-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:7266871daca00ad46d1c073e55d972179d12a58fa5c9adec9a3db9bbed71284a", size = 1856885, upload-time = "2025-08-06T14:57:55.024Z" },
@@ -2743,18 +2754,15 @@ name = "torchvision"
 version = "0.23.0+cu128"
 source = { registry = "https://download.pytorch.org/whl/cu128" }
 resolution-markers = [
-    "(python_full_version >= '3.12' and platform_machine != 'aarch64') or (python_full_version >= '3.12' and sys_platform != 'linux')",
-    "python_full_version >= '3.12' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64') or (python_full_version == '3.11.*' and sys_platform != 'linux')",
-    "(python_full_version < '3.11' and platform_machine != 'aarch64') or (python_full_version < '3.11' and sys_platform != 'linux')",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version < '3.11' and platform_machine == 'aarch64' and sys_platform == 'linux'",
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
 ]
 dependencies = [
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "pillow", marker = "extra == 'extra-11-corridorkey-cuda'" },
-    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda'" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-11-corridorkey-cuda') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "pillow", marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+cu128", source = { registry = "https://download.pytorch.org/whl/cu128" }, marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 wheels = [
     { url = "https://download-r2.pytorch.org/whl/cu128/torchvision-0.23.0%2Bcu128-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:460bc8d70f63bdb433a7351decc2c1ae1903f7f378e4a7614fc8e8c97a5c36aa" },
@@ -2770,11 +2778,34 @@ wheels = [
 ]
 
 [[package]]
+name = "torchvision"
+version = "0.23.0+rocm6.3"
+source = { registry = "https://download.pytorch.org/whl/rocm6.3" }
+resolution-markers = [
+    "python_full_version >= '3.12'",
+    "python_full_version == '3.11.*'",
+    "python_full_version < '3.11'",
+]
+dependencies = [
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version < '3.11' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "(python_full_version >= '3.11' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "pillow", marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "torch", version = "2.8.0+rocm6.3", source = { registry = "https://download.pytorch.org/whl/rocm6.3" }, marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
+]
+wheels = [
+    { url = "https://download-r2.pytorch.org/whl/rocm6.3/torchvision-0.23.0%2Brocm6.3-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:c67eae11e74b5e03a2cd5d4eabb3c4fb12a21c261aaac5672765961f4bbc9197" },
+    { url = "https://download-r2.pytorch.org/whl/rocm6.3/torchvision-0.23.0%2Brocm6.3-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:49b31481565fd410e5f43226a06d7b27a4dfe10e91a0a4c9f48fdffc9bf88720" },
+    { url = "https://download-r2.pytorch.org/whl/rocm6.3/torchvision-0.23.0%2Brocm6.3-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:53c503ceaea50ac20581bdbb2e088997f07c5da22e24850333533719681faedb" },
+    { url = "https://download-r2.pytorch.org/whl/rocm6.3/torchvision-0.23.0%2Brocm6.3-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:5d6b076b857ab8643dd796090499fa3b774822182eb4b27bfe2b0bc7f04289a5" },
+    { url = "https://download-r2.pytorch.org/whl/rocm6.3/torchvision-0.23.0%2Brocm6.3-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:5ea4c7e9708e5864dde7302d7bf75aaff9f39d58aa7e833febb50c0fd83dd0a0" },
+]
+
+[[package]]
 name = "tqdm"
 version = "4.67.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/09/a9/6ba95a270c6f1fbcd8dac228323f2777d886cb206987444e4bce66338dd4/tqdm-4.67.3.tar.gz", hash = "sha256:7d825f03f89244ef73f1d4ce193cb1774a8179fd96f31d7e1dcde62092b960bb", size = 169598, upload-time = "2026-02-03T17:35:53.048Z" }
 wheels = [
@@ -2787,8 +2818,8 @@ version = "5.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "huggingface-hub" },
-    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
-    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
+    { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "packaging" },
     { name = "pyyaml" },
     { name = "regex" },
@@ -2807,7 +2838,7 @@ name = "triton"
 version = "3.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "setuptools", marker = "platform_machine != 'aarch64' or sys_platform != 'linux' or extra != 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "setuptools", marker = "extra == 'extra-11-corridorkey-cuda' or extra == 'extra-11-corridorkey-mlx' or extra != 'extra-11-corridorkey-rocm'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/62/ee/0ee5f64a87eeda19bbad9bc54ae5ca5b98186ed00055281fd40fb4beb10e/triton-3.4.0-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7ff2785de9bc02f500e085420273bb5cc9c9bb767584a4aa28d6e360cec70128", size = 155430069, upload-time = "2025-07-30T19:58:21.715Z" },
@@ -2822,7 +2853,7 @@ name = "triton-windows"
 version = "3.4.0.post21"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "setuptools", marker = "platform_machine != 'aarch64' or sys_platform != 'linux' or extra != 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "setuptools" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9d/77/58e419d467770ccabe83650f22e35cd5cba7e8fe23294fb49621d3c2aa57/triton_windows-3.4.0.post21-cp310-cp310-win_amd64.whl", hash = "sha256:b5d12acb71d8fb4af8baff7588b5d26614bbe383888c22ab27b50948dc3baa82", size = 42672843, upload-time = "2025-10-17T05:09:05.38Z" },
@@ -2890,25 +2921,25 @@ wheels = [
 
 [[package]]
 name = "uvicorn"
-version = "0.41.0"
+version = "0.42.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
     { name = "h11" },
-    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/32/ce/eeb58ae4ac36fe09e3842eb02e0eb676bf2c53ae062b98f1b2531673efdd/uvicorn-0.41.0.tar.gz", hash = "sha256:09d11cf7008da33113824ee5a1c6422d89fbc2ff476540d69a34c87fab8b571a", size = 82633, upload-time = "2026-02-16T23:07:24.1Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e3/ad/4a96c425be6fb67e0621e62d86c402b4a17ab2be7f7c055d9bd2f638b9e2/uvicorn-0.42.0.tar.gz", hash = "sha256:9b1f190ce15a2dd22e7758651d9b6d12df09a13d51ba5bf4fc33c383a48e1775", size = 85393, upload-time = "2026-03-16T06:19:50.077Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/83/e4/d04a086285c20886c0daad0e026f250869201013d18f81d9ff5eada73a88/uvicorn-0.41.0-py3-none-any.whl", hash = "sha256:29e35b1d2c36a04b9e180d4007ede3bcb32a85fbdfd6c6aeb3f26839de088187", size = 68783, upload-time = "2026-02-16T23:07:22.357Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/89/f8827ccff89c1586027a105e5630ff6139a64da2515e24dafe860bd9ae4d/uvicorn-0.42.0-py3-none-any.whl", hash = "sha256:96c30f5c7abe6f74ae8900a70e92b85ad6613b745d4879eb9b16ccad15645359", size = 68830, upload-time = "2026-03-16T06:19:48.325Z" },
 ]
 
 [package.optional-dependencies]
 standard = [
-    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "colorama", marker = "sys_platform == 'win32' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "httptools" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform == 'cygwin' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform == 'win32' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "uvloop", marker = "(platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32') or (platform_python_implementation == 'PyPy' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (platform_python_implementation == 'PyPy' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (platform_python_implementation == 'PyPy' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform == 'cygwin' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform == 'cygwin' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform == 'cygwin' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (sys_platform == 'win32' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (sys_platform == 'win32' and extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (sys_platform == 'win32' and extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
     { name = "watchfiles" },
     { name = "websockets" },
 ]
@@ -3086,7 +3117,7 @@ dependencies = [
     { name = "pygments" },
     { name = "pymdown-extensions" },
     { name = "pyyaml" },
-    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx')" },
+    { name = "tomli", marker = "python_full_version < '3.11' or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm') or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3b/96/9c6cbdd7b351d1023cdbbcf7872d4cb118b0334cfe5821b99e0dd18e3f00/zensical-0.0.24.tar.gz", hash = "sha256:b5d99e225329bf4f98c8022bdf0a0ee9588c2fada7b4df1b7b896fcc62b37ec3", size = 3840688, upload-time = "2026-02-26T09:43:44.557Z" }
 wheels = [
