@@ -117,6 +117,9 @@
 </div>
 
 <style>
+	/* Override body overflow:hidden from app.css */
+	:global(body) { overflow: auto !important; }
+
 	.auth-page {
 		display: flex;
 		align-items: center;
@@ -124,6 +127,7 @@
 		min-height: 100vh;
 		background: var(--surface-0);
 		padding: var(--sp-4);
+		overflow-y: auto;
 	}
 
 	.auth-card {
