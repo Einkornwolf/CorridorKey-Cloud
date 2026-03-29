@@ -24,6 +24,11 @@ def is_redis_configured() -> bool:
     return bool(_REDIS_URL)
 
 
+def get_redis_url() -> str:
+    """Return the configured Redis URL (empty string if not configured)."""
+    return _REDIS_URL
+
+
 def get_redis():
     """Get the shared Redis client. Returns None if CK_REDIS_URL is not set.
 

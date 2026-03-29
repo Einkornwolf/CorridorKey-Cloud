@@ -525,6 +525,11 @@ class RedisJobState:
             # Set cancel flag — worker or node will pick it up
             r.set(_cancel_key(job.id), "1")
             job.request_cancel()
+            # Publish to all instances for cross-instance cancel (CRKY-105 Phase 3)
+            try:
+                r.publish("ck:ws:cancel", json.dumps({"job_id": job.id}))
+            except Exception:
+                logger.debug("Failed to publish cancel event", exc_info=True)
             logger.info(f"Job cancel requested [{job.id}]")
 
     def cancel_current(self) -> None:
@@ -534,6 +539,11 @@ class RedisJobState:
         for jid in running_ids:
             pipe.set(_cancel_key(jid), "1")
         pipe.execute()
+        for jid in running_ids:
+            try:
+                r.publish("ck:ws:cancel", json.dumps({"job_id": jid}))
+            except Exception:
+                pass
 
     def cancel_all(self) -> None:
         r = get_redis()
@@ -651,6 +661,7 @@ class RedisJobState:
                     pipe.set(_job_key(qid), _save_job(job))
                     cancelled += 1
         # Set cancel flag on running shards
+        cancelled_running: list[str] = []
         running_ids = r.smembers("ck:jobs:running")
         for rid in running_ids:
             data = r.get(_job_key(rid))
@@ -658,8 +669,14 @@ class RedisJobState:
                 job = GPUJob.from_dict(json.loads(data))
                 if job.shard_group == shard_group and job.status == JobStatus.RUNNING:
                     pipe.set(_cancel_key(rid), "1")
+                    cancelled_running.append(rid)
                     cancelled += 1
         pipe.execute()
+        for rid in cancelled_running:
+            try:
+                r.publish("ck:ws:cancel", json.dumps({"job_id": rid}))
+            except Exception:
+                pass
         if cancelled:
             logger.info(f"Cancelled {cancelled} shards in group {shard_group}")
         return cancelled

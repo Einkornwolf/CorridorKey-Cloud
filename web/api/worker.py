@@ -19,6 +19,21 @@ from .ws import manager
 
 logger = logging.getLogger(__name__)
 
+# Registry of live local job objects — for cross-instance cancel (CRKY-105 Phase 3)
+_active_local_jobs: dict[str, GPUJob] = {}
+_active_local_jobs_lock = threading.Lock()
+
+
+def cancel_local_job(job_id: str) -> bool:
+    """Set cancel flag on a locally-running job. Called by pub/sub subscriber."""
+    with _active_local_jobs_lock:
+        job = _active_local_jobs.get(job_id)
+        if job is not None:
+            job.request_cancel()
+            return True
+    return False
+
+
 # CPU-only job types that don't need VRAM
 _CPU_JOB_TYPES = {JobType.VIDEO_EXTRACT, JobType.VIDEO_STITCH}
 
@@ -346,6 +361,17 @@ def _chain_next_pipeline_step(job: GPUJob, queue: JobState, clips_dir: str, serv
 
 def _run_job(service: CorridorKeyService, job: GPUJob, queue: JobState, clips_dir: str) -> None:
     """Run a single job (called from thread pool). Job must already be claimed."""
+    with _active_local_jobs_lock:
+        _active_local_jobs[job.id] = job
+    try:
+        _run_job_inner(service, job, queue, clips_dir)
+    finally:
+        with _active_local_jobs_lock:
+            _active_local_jobs.pop(job.id, None)
+
+
+def _run_job_inner(service: CorridorKeyService, job: GPUJob, queue: JobState, clips_dir: str) -> None:
+    """Inner job execution logic."""
     manager.send_job_status(job.id, JobStatus.RUNNING.value, org_id=job.org_id)
 
     # Use org-scoped clips dir if the job has an org_id

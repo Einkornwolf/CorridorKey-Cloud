@@ -129,6 +129,11 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
     manager.set_loop(loop)
 
+    # Start Redis pub/sub subscriber for cross-instance WS fan-out (CRKY-105 Phase 3)
+    from .redis_pubsub import start_subscriber, stop_subscriber
+
+    await start_subscriber()
+
     state = get_state()
     queue = state.jobs
 
@@ -226,6 +231,8 @@ async def lifespan(app: FastAPI):
     from .status import stop_status_sampler
 
     stop_status_sampler()
+
+    await stop_subscriber()
 
     stop_event.set()
     worker_thread.join(timeout=5)

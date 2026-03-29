@@ -12,12 +12,20 @@ import asyncio
 import json
 import logging
 import os
+import time
+import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
 logger = logging.getLogger(__name__)
+
+# Unique per-process — used for pub/sub echo suppression
+_INSTANCE_ID = uuid.uuid4().hex
+
+# Only publish job:progress to Redis at most once per this interval (seconds)
+_PROGRESS_DEBOUNCE_INTERVAL = 0.5
 
 # Global connection cap (prevents resource exhaustion via many accounts or unauthenticated mode)
 MAX_TOTAL_CONNECTIONS = int(os.environ.get("CK_MAX_WS_CONNECTIONS", "500").strip())
@@ -40,6 +48,7 @@ class ConnectionManager:
     def __init__(self):
         self._connections: list[AuthenticatedConnection] = []
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._progress_tracker: dict[str, float] = {}  # job_id -> last publish time (debounce)
 
     def set_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         self._loop = loop
@@ -101,12 +110,13 @@ class ConnectionManager:
 
     def broadcast_sync(self, message: dict[str, Any], org_id: str | None = None) -> None:
         """Thread-safe broadcast from the worker thread."""
-        if not self._connections or self._loop is None:
-            return
-        try:
-            asyncio.run_coroutine_threadsafe(self._broadcast(message, org_id), self._loop)
-        except RuntimeError:
-            pass
+        if self._connections and self._loop is not None:
+            try:
+                asyncio.run_coroutine_threadsafe(self._broadcast(message, org_id), self._loop)
+            except RuntimeError:
+                pass
+        # Publish to Redis for cross-instance fan-out (CRKY-105 Phase 3)
+        self._publish_to_redis(message, org_id=org_id)
 
     def send_job_progress(
         self, job_id: str, clip_name: str, current: int, total: int, org_id: str | None = None
@@ -120,6 +130,8 @@ class ConnectionManager:
         )
 
     def send_job_status(self, job_id: str, status: str, error: str | None = None, org_id: str | None = None) -> None:
+        if status in ("completed", "cancelled", "failed"):
+            self._progress_tracker.pop(job_id, None)
         self.broadcast_sync(
             {
                 "type": "job:status",
@@ -161,14 +173,52 @@ class ConnectionManager:
             self.disconnect(ws)
 
     def send_vram_update(self, vram: dict) -> None:
-        if not self._connections or self._loop is None:
+        msg = {"type": "vram:update", "data": vram}
+        if self._connections and self._loop is not None:
+            try:
+                asyncio.run_coroutine_threadsafe(self._broadcast_admin_only(msg), self._loop)
+            except RuntimeError:
+                pass
+        self._publish_to_redis(msg, admin_only=True)
+
+    def _publish_to_redis(
+        self,
+        message: dict[str, Any],
+        org_id: str | None = None,
+        admin_only: bool = False,
+    ) -> None:
+        """Publish a message to Redis pub/sub for cross-instance fan-out.
+
+        Thread-safe. No-op when Redis is not configured.
+        """
+        from .redis_client import get_redis, is_redis_configured
+
+        if not is_redis_configured():
             return
+
+        # Debounce high-frequency progress events
+        if message.get("type") == "job:progress":
+            job_id = message.get("data", {}).get("job_id", "")
+            now = time.monotonic()
+            if now - self._progress_tracker.get(job_id, 0.0) < _PROGRESS_DEBOUNCE_INTERVAL:
+                return
+            self._progress_tracker[job_id] = now
+
         try:
-            asyncio.run_coroutine_threadsafe(
-                self._broadcast_admin_only({"type": "vram:update", "data": vram}), self._loop
+            r = get_redis()
+            if r is None:
+                return
+            envelope = json.dumps(
+                {
+                    "instance_id": _INSTANCE_ID,
+                    "org_id": org_id,
+                    "admin_only": admin_only,
+                    "message": message,
+                }
             )
-        except RuntimeError:
-            pass
+            r.publish("ck:ws:broadcast", envelope)
+        except Exception:
+            logger.debug("Redis pub/sub publish failed", exc_info=True)
 
     def send_node_update(self, node_data: dict, org_id: str | None = None) -> None:
         self.broadcast_sync(
