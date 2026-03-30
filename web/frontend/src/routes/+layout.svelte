@@ -56,8 +56,8 @@
 		refreshClips();
 		refreshJobs();
 		refreshNodes();
-		if (authEnabled) loadUserOrgs();
-		if (authEnabled) refreshCredits();
+		loadUserOrgs();
+		refreshCredits();
 	}
 
 	// Re-check when navigating from public page (login/signup) to app page
