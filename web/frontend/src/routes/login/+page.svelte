@@ -16,7 +16,10 @@
 		error = '';
 		try {
 			const session = await login(email, password);
-			if (session.user.tier === 'pending') {
+			if (session.user.tier === 'rejected') {
+				error = 'Your account has been rejected. Contact an administrator.';
+				logout();
+			} else if (session.user.tier === 'pending') {
 				goto('/pending');
 			} else {
 				goto('/clips');

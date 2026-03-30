@@ -292,6 +292,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
             except Exception:
                 pass  # Local store unavailable — fall back to JWT tier
 
+        # Block rejected users at the middleware level
+        if request.state.user.tier == "rejected":
+            return JSONResponse(status_code=403, content={"detail": "Account rejected"})
+
         # Auto-register user in local store on first auth.
         # Handles users created via create-admin.sh or GoTrue admin API
         # who don't have a local record yet.
