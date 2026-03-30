@@ -6,6 +6,9 @@
 	let checking = $state(false);
 	let lastChecked = $state('');
 	let status = $state<'pending' | 'approved' | 'rejected' | 'checking'>('pending');
+	let queuePosition = $state(0);
+	let queueTotal = $state(0);
+	let serverOverloaded = $state(false);
 
 	async function checkApproval() {
 		checking = true;
@@ -23,9 +26,19 @@
 			const res = await fetch('/api/auth/me', {
 				headers: { 'Authorization': `Bearer ${token}` }
 			});
+
+			if (res.status === 503 || res.status === 502) {
+				serverOverloaded = true;
+				return;
+			}
+			serverOverloaded = false;
+
 			if (!res.ok) return;
 
 			const data = await res.json();
+			if (data.queue_position) queuePosition = data.queue_position;
+			if (data.queue_total) queueTotal = data.queue_total;
+
 			if (data.tier && data.tier !== 'pending') {
 				status = 'approved';
 				// Update stored user with new tier
@@ -40,7 +53,8 @@
 				status = 'rejected';
 			}
 		} catch {
-			// Silently fail — will retry on next interval
+			// Network error — might be overloaded
+			serverOverloaded = true;
 		} finally {
 			checking = false;
 			lastChecked = new Date().toLocaleTimeString();
@@ -61,9 +75,24 @@
 <div class="auth-page">
 	<div class="auth-card">
 		<img src="/Corridor_Digital_Logo.svg" alt="Corridor Digital" class="auth-logo" />
-		<h1 class="auth-title mono">CORRIDORKEY</h1>
+		<div class="logo-row">
+			<h1 class="auth-title mono">CORRIDORKEY</h1>
+			<span class="beta-badge mono">BETA</span>
+		</div>
 
-		{#if status === 'approved'}
+		{#if serverOverloaded}
+			<div class="status-icon overloaded">
+				<svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+					<circle cx="24" cy="24" r="20" stroke="var(--accent)" stroke-width="2" />
+					<path d="M24 16v10" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" />
+					<circle cx="24" cy="32" r="1.5" fill="var(--accent)" />
+				</svg>
+			</div>
+			<h2 class="pending-title">High Demand</h2>
+			<p class="pending-text">
+				We're experiencing high traffic right now. The server is temporarily busy — your account is safe. We'll keep checking automatically.
+			</p>
+		{:else if status === 'approved'}
 			<div class="status-icon approved">
 				<svg width="48" height="48" viewBox="0 0 48 48" fill="none">
 					<circle cx="24" cy="24" r="20" stroke="var(--state-complete)" stroke-width="2" />
@@ -92,6 +121,11 @@
 			<p class="pending-text">
 				Your account has been created. An admin will review and approve your access.
 			</p>
+			{#if queuePosition > 0 && queueTotal > 0}
+				<div class="queue-info mono">
+					You are <span class="queue-highlight">#{queuePosition}</span> of {queueTotal} in the approval queue
+				</div>
+			{/if}
 			<div class="check-status mono">
 				{#if checking}
 					Checking...
@@ -132,7 +166,18 @@
 	}
 
 	.auth-logo { width: 120px; filter: drop-shadow(0 0 4px rgba(255, 242, 3, 0.15)); }
+
+	.logo-row { display: flex; align-items: center; gap: var(--sp-2); }
 	.auth-title { font-size: 11px; letter-spacing: 0.2em; color: var(--text-tertiary); }
+	.beta-badge {
+		font-size: 9px;
+		letter-spacing: 0.1em;
+		padding: 2px 6px;
+		border-radius: 4px;
+		background: rgba(255, 242, 3, 0.12);
+		color: var(--accent);
+		border: 1px solid rgba(255, 242, 3, 0.2);
+	}
 
 	.status-icon { margin: var(--sp-2) 0; }
 
@@ -146,6 +191,20 @@
 		font-size: 14px;
 		color: var(--text-secondary);
 		line-height: 1.5;
+	}
+
+	.queue-info {
+		font-size: 12px;
+		color: var(--text-secondary);
+		padding: var(--sp-2) var(--sp-3);
+		background: var(--surface-2);
+		border-radius: var(--radius-sm);
+		border: 1px solid var(--border);
+	}
+
+	.queue-highlight {
+		color: var(--accent);
+		font-weight: 600;
 	}
 
 	.check-status {

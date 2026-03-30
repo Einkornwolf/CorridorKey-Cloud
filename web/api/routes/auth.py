@@ -84,13 +84,24 @@ def get_current_user_info(request: Request):
             if user_record:
                 name = user_record.name
                 tier = user_record.tier
-        return {
+        result = {
             "authenticated": True,
             "tier": tier,
             "email": claims.get("email", ""),
             "user_id": user_id,
             "name": name,
         }
+        # Add queue position for pending users (CRKY-134)
+        if tier == "pending" and user_id:
+            try:
+                pending = user_store.list_users(tier_filter="pending")
+                pending.sort(key=lambda u: u.signed_up_at)
+                position = next((i + 1 for i, u in enumerate(pending) if u.user_id == user_id), 0)
+                result["queue_position"] = position
+                result["queue_total"] = len(pending)
+            except Exception:
+                pass
+        return result
     except Exception:
         return {"authenticated": False, "tier": None}
 
