@@ -38,12 +38,19 @@ def safe_join(base: str, *parts: str) -> str:
 _MAX_ZIP_MEMBERS = 50_000  # sane limit for VFX sequences
 _MAX_EXTRACTED_BYTES = 20 * 1024**3  # 20 GB decompressed limit
 
+# Only extract files with these extensions from zips — reject everything else
+_ALLOWED_ZIP_EXTS = frozenset({
+    ".png", ".jpg", ".jpeg", ".exr", ".tif", ".tiff", ".bmp", ".dpx",  # images
+    ".mp4", ".mov", ".avi", ".mkv", ".mxf", ".webm",  # video (rare in zips but valid)
+})
+
 
 def safe_extract_zip(zf: zipfile.ZipFile, target_dir: str) -> list[str]:
     """Extract a zip file safely, preventing zip slip.
 
     Validates each member's resolved path stays within target_dir.
     Enforces limits on member count and total decompressed size.
+    Skips files with disallowed extensions.
     Returns the list of extracted file paths.
     """
     target_resolved = os.path.realpath(target_dir)
@@ -64,6 +71,11 @@ def safe_extract_zip(zf: zipfile.ZipFile, target_dir: str) -> list[str]:
         file_count += 1
         if file_count > _MAX_ZIP_MEMBERS:
             raise HTTPException(status_code=400, detail=f"Zip contains too many files (max {_MAX_ZIP_MEMBERS})")
+
+        # Skip files with disallowed extensions
+        ext = os.path.splitext(member.filename)[1].lower()
+        if ext not in _ALLOWED_ZIP_EXTS:
+            continue
 
         # Validate file path
         member_path = os.path.join(target_dir, member.filename)
