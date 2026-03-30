@@ -412,7 +412,7 @@
       - ck-weights:/app/CorridorKeyModule/checkpoints
       - ck-weights-gvm:/app/gvm_core/weights
       - ck-weights-vm:/app/VideoMaMaInferenceModule/checkpoints
-      - ck-compile-cache:/home/nodeuser/.cache/corridorkey
+      - ck-compile-cache:/app/.cache/corridorkey
 
   watchtower:
     image: containrrr/watchtower
@@ -452,7 +452,7 @@ volumes:
       - ck-weights:/app/CorridorKeyModule/checkpoints
       - ck-weights-gvm:/app/gvm_core/weights
       - ck-weights-vm:/app/VideoMaMaInferenceModule/checkpoints
-      - ck-compile-cache:/home/nodeuser/.cache/corridorkey
+      - ck-compile-cache:/app/.cache/corridorkey
 
   watchtower:
     image: containrrr/watchtower
