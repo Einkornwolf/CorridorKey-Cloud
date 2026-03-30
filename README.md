@@ -1,5 +1,6 @@
 # CorridorKey Cloud
 
+![Status](https://corridorkey.cloud/api/status/badge)
 
 https://github.com/user-attachments/assets/1fb27ea8-bc91-4ebc-818f-5a3b5585af08
 
@@ -30,7 +31,7 @@ Traditional keyers struggle with semi-transparent pixels — motion blur, hair, 
 ### Use the Cloud (Recommended)
 
 1. Go to [corridorkey.cloud](https://corridorkey.cloud)
-2. Sign up (invite-only during beta)
+2. Sign up (open beta — tell us about yourself to speed up approval)
 3. Upload your footage
 4. Download your keyed results
 
@@ -163,7 +164,7 @@ The standalone binary ships with CPU torch and downloads GPU acceleration (CUDA 
 | NVIDIA GeForce RTX 30xx/40xx/50xx | 8GB+ | Full support (CUDA) |
 | NVIDIA RTX Pro / Quadro | 8GB+ | Full support (CUDA) |
 | AMD RX 7900 XTX / XT | 20-24GB | Supported (ROCm, Linux) |
-| AMD RX 7800 XT / 9070 XT | 16GB | Supported (ROCm, Windows native or Linux with GTT) |
+| AMD RX 7800 XT | 16GB | Supported (ROCm, Linux with GTT fallback) |
 | Apple Silicon M1+ | 8GB+ unified | Supported (MLX backend) |
 | Intel ARC | | Community extension: [CorridorKeyOpenVINO](https://github.com/daniil-lyakhov/CorridorKeyOpenVINO) |
 
@@ -181,17 +182,24 @@ The standalone binary ships with CPU torch and downloads GPU acceleration (CUDA 
 - Keyboard shortcuts (press `?`)
 
 ### Authentication & Multi-Tenancy
-- Invite-only signup with admin approval
+- Open signup with structured profile and admin approval
 - Organization workspaces with per-org file isolation
-- Trust tiers: member, contributor, org admin, platform admin
-- Per-tier resource limits (frame count, concurrent jobs)
+- Trust tiers: pending, member, contributor, org admin, platform admin
+- Per-tier resource limits (frame count, concurrent jobs, storage retention)
 - GPU credit system — contribute compute to earn processing credits
+- Automatic clip cleanup with tier-based retention policies
+
+### Infrastructure
+- Redis-backed stateless architecture for multi-instance deployment behind load balancers
+- WebSocket pub/sub fan-out across server instances
+- Distributed job reaper with Redis lock (single-writer safety)
 
 ### Monitoring
 - Prometheus metrics endpoint (`/metrics`)
 - Grafana dashboards (platform overview, node fleet, log explorer)
 - Node reputation scoring (success rate, speed, uptime)
 - Per-node health history graphs
+- Status badge: ![Status](https://corridorkey.cloud/api/status/badge)
 
 ## Development
 
