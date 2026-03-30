@@ -112,11 +112,12 @@
 	async function revokeToken(preview: string) {
 		// Strip the trailing "..." from token_preview to get the 8-char prefix
 		const prefix = preview.replace(/\.+$/, '');
+		// Mark as revoked locally first (preserves list order, prevents misclicks)
+		nodeTokens = nodeTokens.map(t => t.token_preview === preview ? { ...t, revoked: true } : t);
 		await fetch(`/api/farm/tokens/${encodeURIComponent(prefix)}`, {
 			method: 'DELETE',
 			headers: { 'Authorization': `Bearer ${localStorage.getItem('ck:auth_token')}` }
 		});
-		nodeTokens = nodeTokens.filter(t => t.token_preview !== preview);
 	}
 
 	function timeSince(ts: number): string {
@@ -479,7 +480,7 @@ volumes:
 					{@const activeTokens = nodeTokens.filter(t => !t.revoked)}
 					{@const revokedTokens = nodeTokens.filter(t => t.revoked)}
 					{@const orgMap = Object.fromEntries(userOrgs.map(o => [o.org_id, o.name]))}
-					{@const orgIds = [...new Set(activeTokens.map(t => t.org_id))]}
+					{@const orgIds = [...new Set(activeTokens.map(t => t.org_id))].sort((a, b) => (orgMap[a] || '').localeCompare(orgMap[b] || ''))}
 
 					{#each orgIds as oid}
 						{@const orgTokens = activeTokens.filter(t => t.org_id === oid)}
