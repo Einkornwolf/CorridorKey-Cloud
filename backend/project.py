@@ -26,6 +26,7 @@ import os
 import re
 import shutil
 import sys
+import uuid
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
@@ -142,7 +143,8 @@ def create_project(
         project_display_name = name_stem.replace("_", " ")
 
     timestamp = datetime.now().strftime("%y%m%d_%H%M%S")
-    folder_name = f"{timestamp}_{name_stem}"
+    uid = uuid.uuid4().hex[:6]
+    folder_name = f"{timestamp}_{uid}_{name_stem}"
 
     # Deduplicate if folder already exists (e.g. rapid imports)
     project_dir, _ = _dedupe_path(root, folder_name)
