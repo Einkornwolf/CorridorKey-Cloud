@@ -164,6 +164,19 @@
 		} catch { logLines = ['Failed to fetch logs']; viewingLogs = nodeId; }
 	}
 
+	async function toggleVisibility(node: NodeInfo) {
+		const next = node.visibility === 'shared' ? 'private' : 'shared';
+		try {
+			const token = localStorage.getItem('ck:auth_token');
+			await fetch(`/api/farm/${node.node_id}/visibility`, {
+				method: 'PUT',
+				headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+				body: JSON.stringify({ visibility: next }),
+			});
+			refreshNodes();
+		} catch (e: unknown) { toast.error(`Failed: ${e instanceof Error ? e.message : e}`); }
+	}
+
 	async function toggleLocalGpu() {
 		const next = !localGpuEnabled;
 		try { await api.system2.setLocalGpu(next); localGpuEnabled = next; }
@@ -280,7 +293,14 @@
 								<div class="info-row"><span class="info-label">Node ID</span><span class="mono">{node.node_id}</span></div>
 								<div class="info-row"><span class="info-label">Host</span><span class="mono">{node.host}</span></div>
 								<div class="info-row"><span class="info-label">Accepted</span><span class="mono">{formatTypes(node)}</span></div>
-								<div class="info-row"><span class="info-label">Visibility</span><span class="mono">{node.visibility}</span></div>
+								<div class="info-row">
+								<span class="info-label">Visibility</span>
+								{#if node.can_manage}
+									<button class="btn-sm mono" onclick={() => toggleVisibility(node)}>{node.visibility === 'shared' ? 'SHARED → PRIVATE' : 'PRIVATE → SHARED'}</button>
+								{:else}
+									<span class="mono">{node.visibility}</span>
+								{/if}
+							</div>
 								<div class="info-row"><span class="info-label">Version</span><span class="mono">{node.agent_version?.substring(0, 8) || '—'}</span></div>
 								{#if node.reputation}
 									<div class="info-row">

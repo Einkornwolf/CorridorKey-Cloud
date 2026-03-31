@@ -228,13 +228,20 @@
 				{/if}
 				<div class="webhook-form">
 					<input type="url" class="input mono" bind:value={newWebhookUrl} placeholder="https://hooks.example.com/..." />
-					<div class="event-toggles">
-						{#each ['job_completed', 'job_failed'] as ev}
-							<label class="event-toggle mono">
-								<input type="checkbox" checked={newWebhookEvents.has(ev)} onchange={() => toggleWebhookEvent(ev)} />
-								{ev}
-							</label>
-						{/each}
+					<div class="webhook-options">
+						<div class="event-toggles">
+							{#each ['job_completed', 'job_failed'] as ev}
+								<label class="event-toggle mono">
+									<input type="checkbox" checked={newWebhookEvents.has(ev)} onchange={() => toggleWebhookEvent(ev)} />
+									{ev}
+								</label>
+							{/each}
+						</div>
+						<select class="select-sm mono" bind:value={newWebhookFormat}>
+							<option value="json">JSON</option>
+							<option value="discord">Discord</option>
+							<option value="slack">Slack</option>
+						</select>
 					</div>
 					<button class="btn-primary mono" onclick={addWebhook} disabled={!newWebhookUrl.trim()}>ADD WEBHOOK</button>
 				</div>
@@ -360,6 +367,7 @@
 	.webhook-url { font-size: 12px; color: var(--text-secondary); flex: 1; overflow: hidden; text-overflow: ellipsis; }
 	.webhook-events { font-size: 10px; color: var(--text-tertiary); }
 	.webhook-form { display: flex; flex-direction: column; gap: var(--sp-2); border-top: 1px solid var(--border); padding-top: var(--sp-2); }
+	.webhook-options { display: flex; align-items: center; gap: var(--sp-3); }
 	.event-toggles { display: flex; gap: var(--sp-2); }
 	.event-toggle { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-secondary); cursor: pointer; }
 	.event-toggle input { accent-color: var(--accent); }
