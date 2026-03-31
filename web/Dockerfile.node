@@ -31,7 +31,6 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     ffmpeg \
     libgl1 \
     libglib2.0-0 && \
-    if [ "$GPU_VENDOR" = "amd" ]; then apt-get install -y --no-install-recommends rocm-smi-lib; fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -40,7 +39,8 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     if [ "$GPU_VENDOR" = "amd" ]; then \
         uv sync --frozen --no-dev --no-install-project && \
-        uv pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/rocm6.3; \
+        uv pip install torch==2.8.0 torchvision==0.23.0 --index-url https://download.pytorch.org/whl/rocm6.3 && \
+        uv pip install pyrsmi; \
     else \
         uv sync --frozen --no-dev --extra cuda --no-install-project; \
     fi

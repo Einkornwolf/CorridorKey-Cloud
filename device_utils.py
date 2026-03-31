@@ -271,6 +271,31 @@ def _enumerate_amd() -> list[GPUInfo] | None:
     except (FileNotFoundError, TimeoutExpired):
         pass
 
+    # Fallback: pyrsmi Python package (pip install pyrsmi)
+    try:
+        from pyrsmi import rocml
+
+        rocml.smi_initialize()
+        num_devices = rocml.smi_get_device_count()
+        gpus = []
+        for i in range(num_devices):
+            name = rocml.smi_get_device_name(i)
+            total_bytes = rocml.smi_get_device_memory_total(i)
+            used_bytes = rocml.smi_get_device_memory_used(i)
+            gpus.append(
+                GPUInfo(
+                    index=i,
+                    name=name,
+                    vram_total_gb=total_bytes / (1024**3),
+                    vram_free_gb=(total_bytes - used_bytes) / (1024**3),
+                )
+            )
+        rocml.smi_shutdown()
+        if gpus:
+            return gpus
+    except (ImportError, Exception):
+        pass
+
     # Windows: no amd-smi/rocm-smi, fall back to WMI
     return _enumerate_amd_windows()
 
