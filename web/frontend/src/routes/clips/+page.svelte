@@ -33,6 +33,8 @@
 	let showUploadModal = $state(false);
 	let pendingFiles = $state<File[]>([]);
 	let uploadProjectName = $state('');
+	let uploadProjectMode = $state<'new' | 'existing'>('new');
+	let uploadSelectedProject = $state('');
 	let uploadStatus = $state<'choose' | 'uploading' | 'extracting' | 'done'>('choose');
 	let uploadFileProgress = $state<{ name: string; progress: number; done: boolean }[]>([]);
 
@@ -290,11 +292,16 @@
 		const firstName = valid[0].name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
 		uploadProjectName = firstName;
 		uploadStatus = 'choose';
+		uploadProjectMode = projects.length > 0 ? 'existing' : 'new';
+		uploadSelectedProject = projects.length > 0 ? projects[0].name : '';
 		uploadFileProgress = valid.map(f => ({ name: f.name, progress: 0, done: false }));
 		showUploadModal = true;
 	}
 
 	async function startUpload() {
+		const projectName = uploadProjectMode === 'existing'
+			? (projects.find(p => p.name === uploadSelectedProject)?.display_name || uploadSelectedProject)
+			: uploadProjectName.trim();
 		uploadStatus = 'uploading';
 		uploading = true;
 		uploadError = null;
@@ -305,7 +312,7 @@
 
 			if (imageFiles.length > 0) {
 				const idx = pendingFiles.indexOf(imageFiles[0]);
-				const result = await api.upload.images(imageFiles, uploadProjectName.trim() || undefined, (loaded, total) => {
+				const result = await api.upload.images(imageFiles, projectName || undefined, (loaded, total) => {
 					if (idx >= 0) uploadFileProgress[idx] = { ...uploadFileProgress[idx], progress: Math.round((loaded / total) * 100) };
 				});
 				if (result?.clips) for (const c of result.clips) { if (c.name) lastUploadedClips.push(c.name); }
@@ -323,9 +330,9 @@
 					if (idx >= 0) uploadFileProgress[idx] = { ...uploadFileProgress[idx], progress: Math.round((loaded / total) * 100) };
 				};
 				if (isVideo(file.name)) {
-					result = await api.upload.video(file, uploadProjectName.trim() || undefined, $autoExtractFrames, onProgress);
+					result = await api.upload.video(file, projectName || undefined, $autoExtractFrames, onProgress);
 				} else if (isZip(file.name)) {
-					result = await api.upload.frames(file, uploadProjectName.trim() || undefined, onProgress);
+					result = await api.upload.frames(file, projectName || undefined, onProgress);
 				} else { continue; }
 				if (result?.clips) for (const c of result.clips) { if (c.name) lastUploadedClips.push(c.name); }
 				if (idx >= 0) uploadFileProgress[idx] = { ...uploadFileProgress[idx], done: true, progress: 100 };
@@ -637,10 +644,26 @@
 		<div class="modal" onclick={(e) => e.stopPropagation()}>
 			{#if uploadStatus === 'choose'}
 				<h2 class="modal-title">Upload {pendingFiles.length} file{pendingFiles.length !== 1 ? 's' : ''}</h2>
-				<label class="modal-field">
-					<span class="field-label mono">PROJECT NAME</span>
-					<input type="text" class="modal-input mono" bind:value={uploadProjectName} placeholder="e.g. Workshop Day 1" />
-				</label>
+				<div class="project-choice">
+					{#if projects.length > 0}
+						<div class="choice-tabs">
+							<button class="choice-tab mono" class:active={uploadProjectMode === 'existing'} onclick={() => uploadProjectMode = 'existing'}>Existing Project</button>
+							<button class="choice-tab mono" class:active={uploadProjectMode === 'new'} onclick={() => uploadProjectMode = 'new'}>New Project</button>
+						</div>
+					{/if}
+					{#if uploadProjectMode === 'existing' && projects.length > 0}
+						<select class="modal-select mono" bind:value={uploadSelectedProject}>
+							{#each projects as p}
+								<option value={p.name}>{p.display_name} ({p.clip_count} clips)</option>
+							{/each}
+						</select>
+					{:else}
+						<label class="modal-field">
+							<span class="field-label mono">PROJECT NAME</span>
+							<input type="text" class="modal-input mono" bind:value={uploadProjectName} placeholder="e.g. Workshop Day 1" />
+						</label>
+					{/if}
+				</div>
 				<div class="modal-files mono">
 					{#each pendingFiles as f}
 						<span class="file-name">{f.name}</span>
@@ -714,6 +737,20 @@
 	}
 	.modal-input:focus { border-color: var(--accent); }
 	.modal-input::placeholder { color: var(--text-tertiary); }
+	.project-choice { display: flex; flex-direction: column; gap: var(--sp-2); }
+	.choice-tabs { display: flex; gap: 0; }
+	.choice-tab {
+		flex: 1; padding: 6px; font-size: 11px; letter-spacing: 0.04em; text-align: center;
+		background: var(--surface-3); border: 1px solid var(--border); color: var(--text-tertiary);
+		cursor: pointer; transition: all 0.15s;
+	}
+	.choice-tab:first-child { border-radius: 4px 0 0 4px; }
+	.choice-tab:last-child { border-radius: 0 4px 4px 0; }
+	.choice-tab.active { background: var(--surface-4); color: var(--text-primary); border-color: var(--accent); }
+	.modal-select {
+		padding: 8px 10px; background: var(--surface-3); border: 1px solid var(--border);
+		border-radius: 6px; color: var(--text-primary); font-size: 13px; width: 100%;
+	}
 	.modal-files { display: flex; flex-direction: column; gap: 2px; max-height: 120px; overflow-y: auto; }
 	.file-name { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 	.modal-actions { display: flex; gap: var(--sp-2); }
