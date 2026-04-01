@@ -25,6 +25,17 @@
 	let newProjectName = $state('');
 	let showCreateForm = $state(false);
 
+	// Drag state for visual drop zones
+	let draggingClip = $state(false);
+	let dropTargetProject = $state<string | null>(null);
+
+	// Upload modal state
+	let showUploadModal = $state(false);
+	let pendingFiles = $state<File[]>([]);
+	let uploadProjectName = $state('');
+	let uploadStatus = $state<'choose' | 'uploading' | 'extracting' | 'done'>('choose');
+	let uploadFileProgress = $state<{ name: string; progress: number; done: boolean }[]>([]);
+
 	// Multi-select
 	let selectedClips = $state<Set<string>>(new Set());
 
@@ -271,54 +282,69 @@
 		}
 	}
 
-	async function handleFiles(files: FileList | File[]) {
+	function handleFiles(files: FileList | File[]) {
+		const valid = Array.from(files).filter(f => isVideo(f.name) || isImage(f.name) || isZip(f.name));
+		if (valid.length === 0) { uploadError = 'No supported files. Use videos, images, or zipped frames.'; return; }
+		pendingFiles = valid;
+		// Default project name from first file
+		const firstName = valid[0].name.replace(/\.[^.]+$/, '').replace(/[_-]/g, ' ');
+		uploadProjectName = firstName;
+		uploadStatus = 'choose';
+		uploadFileProgress = valid.map(f => ({ name: f.name, progress: 0, done: false }));
+		showUploadModal = true;
+	}
+
+	async function startUpload() {
+		uploadStatus = 'uploading';
 		uploading = true;
-		uploadProgress = 0;
 		uploadError = null;
-		const onProgress = (loaded: number, total: number) => {
-			uploadProgress = Math.round((loaded / total) * 100);
-		};
 		let lastUploadedClips: string[] = [];
 		try {
-			// Batch image files together for a single upload
-			const imageFiles = Array.from(files).filter(f => isImage(f.name));
-			const otherFiles = Array.from(files).filter(f => !isImage(f.name));
+			const imageFiles = pendingFiles.filter(f => isImage(f.name));
+			const otherFiles = pendingFiles.filter(f => !isImage(f.name));
 
 			if (imageFiles.length > 0) {
-				uploadProgress = 0;
-				const result = await api.upload.images(imageFiles, undefined, onProgress);
-				if (result?.clips) {
-					for (const c of result.clips) {
-						if (c.name) lastUploadedClips.push(c.name);
-					}
+				const idx = pendingFiles.indexOf(imageFiles[0]);
+				const result = await api.upload.images(imageFiles, uploadProjectName.trim() || undefined, (loaded, total) => {
+					if (idx >= 0) uploadFileProgress[idx] = { ...uploadFileProgress[idx], progress: Math.round((loaded / total) * 100) };
+				});
+				if (result?.clips) for (const c of result.clips) { if (c.name) lastUploadedClips.push(c.name); }
+				for (const f of imageFiles) {
+					const i = pendingFiles.indexOf(f);
+					if (i >= 0) uploadFileProgress[i] = { ...uploadFileProgress[i], done: true, progress: 100 };
 				}
 			}
 
-			for (const file of otherFiles) {
+			for (let fi = 0; fi < otherFiles.length; fi++) {
+				const file = otherFiles[fi];
+				const idx = pendingFiles.indexOf(file);
 				let result: any;
-				uploadProgress = 0;
+				const onProgress = (loaded: number, total: number) => {
+					if (idx >= 0) uploadFileProgress[idx] = { ...uploadFileProgress[idx], progress: Math.round((loaded / total) * 100) };
+				};
 				if (isVideo(file.name)) {
-					result = await api.upload.video(file, undefined, $autoExtractFrames, onProgress);
+					result = await api.upload.video(file, uploadProjectName.trim() || undefined, $autoExtractFrames, onProgress);
 				} else if (isZip(file.name)) {
-					result = await api.upload.frames(file, undefined, onProgress);
-				} else {
-					uploadError = `Unsupported: ${file.name}. Use videos, images, or zipped frames.`;
-					continue;
-				}
-				// Track uploaded clip names for navigation
-				if (result?.clips) {
-					for (const c of result.clips) {
-						if (c.name) lastUploadedClips.push(c.name);
-					}
-				}
+					result = await api.upload.frames(file, uploadProjectName.trim() || undefined, onProgress);
+				} else { continue; }
+				if (result?.clips) for (const c of result.clips) { if (c.name) lastUploadedClips.push(c.name); }
+				if (idx >= 0) uploadFileProgress[idx] = { ...uploadFileProgress[idx], done: true, progress: 100 };
 			}
+
+			uploadStatus = $autoExtractFrames ? 'extracting' : 'done';
 			await Promise.all([loadProjects(), refreshClips(), refreshJobs()]);
-			// Navigate to the first uploaded clip
-			if (lastUploadedClips.length === 1) {
-				goto(`/clips/${encodeURIComponent(lastUploadedClips[0])}`);
+
+			// Auto-close after a moment if extraction is queued
+			if (uploadStatus === 'extracting') {
+				setTimeout(() => { uploadStatus = 'done'; }, 2000);
 			}
+			setTimeout(() => {
+				showUploadModal = false;
+				if (lastUploadedClips.length === 1) goto(`/clips/${encodeURIComponent(lastUploadedClips[0])}`);
+			}, uploadStatus === 'done' ? 500 : 3000);
 		} catch (e) {
 			uploadError = e instanceof Error ? e.message : String(e);
+			uploadStatus = 'done';
 		} finally {
 			uploading = false;
 		}
@@ -504,7 +530,7 @@
 			{#each filteredProjects as project (project.name)}
 				{@const collapsed = collapsedProjects.has(project.name)}
 				<div class="project-group">
-					<div class="project-header" role="button" tabindex="0" aria-expanded={!collapsed} onclick={() => toggleProject(project.name)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleProject(project.name); }}} oncontextmenu={(e) => showProjectContext(e, project)}>
+					<div class="project-header" class:drop-highlight={draggingClip && dropTargetProject === project.name} role="button" tabindex="0" aria-expanded={!collapsed} onclick={() => toggleProject(project.name)} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleProject(project.name); }}} oncontextmenu={(e) => showProjectContext(e, project)} ondragover={(e) => { e.preventDefault(); dropTargetProject = project.name; }} ondragleave={() => { if (dropTargetProject === project.name) dropTargetProject = null; }} ondrop={async (e) => { e.preventDefault(); dropTargetProject = null; draggingClip = false; const clipName = e.dataTransfer?.getData('text/clip-name'); if (clipName) { try { await api.clips.move(clipName, project.name); await Promise.all([loadProjects(), refreshClips()]); } catch (err) { toast.error(err instanceof Error ? err.message : String(err)); } } }}>
 
 						<svg class="chevron" class:collapsed width="12" height="12" viewBox="0 0 12 12" fill="none">
 							<path d="M3 4.5l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -554,7 +580,8 @@
 										<div class="clip-wrap"
 											class:selected={selectedClips.has(clip.name)}
 											draggable="true"
-											ondragstart={(e) => { e.dataTransfer?.setData('text/clip-name', clip.name); }}
+											ondragstart={(e) => { e.dataTransfer?.setData('text/clip-name', clip.name); draggingClip = true; }}
+										ondragend={() => { draggingClip = false; dropTargetProject = null; }}
 											oncontextmenu={(e) => hasSelection ? showSelectionContext(e) : showClipContext(e, clip, project)}
 										>
 											<label class="clip-checkbox">
@@ -602,6 +629,55 @@
 
 <ContextMenu bind:visible={ctxVisible} x={ctxX} y={ctxY} items={ctxItems} />
 
+<!-- Upload modal -->
+{#if showUploadModal}
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="modal-overlay" onclick={() => { if (uploadStatus === 'done' || uploadStatus === 'choose') showUploadModal = false; }}>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="modal" onclick={(e) => e.stopPropagation()}>
+			{#if uploadStatus === 'choose'}
+				<h2 class="modal-title">Upload {pendingFiles.length} file{pendingFiles.length !== 1 ? 's' : ''}</h2>
+				<label class="modal-field">
+					<span class="field-label mono">PROJECT NAME</span>
+					<input type="text" class="modal-input mono" bind:value={uploadProjectName} placeholder="e.g. Workshop Day 1" />
+				</label>
+				<div class="modal-files mono">
+					{#each pendingFiles as f}
+						<span class="file-name">{f.name}</span>
+					{/each}
+				</div>
+				<div class="modal-actions">
+					<button class="btn-primary mono" onclick={startUpload}>Upload</button>
+					<button class="btn-secondary mono" onclick={() => showUploadModal = false}>Cancel</button>
+				</div>
+			{:else if uploadStatus === 'uploading'}
+				<h2 class="modal-title">Uploading...</h2>
+				<div class="modal-progress-list">
+					{#each uploadFileProgress as fp}
+						<div class="progress-item">
+							<span class="file-name mono">{fp.name}</span>
+							<div class="progress-bar-sm">
+								<div class="progress-fill-sm" style="width: {fp.progress}%"></div>
+							</div>
+							<span class="progress-pct mono">{fp.done ? '✓' : `${fp.progress}%`}</span>
+						</div>
+					{/each}
+				</div>
+			{:else if uploadStatus === 'extracting'}
+				<h2 class="modal-title">Extracting frames...</h2>
+				<p class="modal-hint mono">Extraction jobs have been queued. You can close this and check progress on the Jobs page.</p>
+				<button class="btn-secondary mono" onclick={() => showUploadModal = false}>Close</button>
+			{:else}
+				<h2 class="modal-title">Upload complete</h2>
+				<button class="btn-primary mono" onclick={() => showUploadModal = false}>Done</button>
+			{/if}
+			{#if uploadError}
+				<div class="modal-error mono">{uploadError}</div>
+			{/if}
+		</div>
+	</div>
+{/if}
+
 <style>
 	.page {
 		padding: var(--sp-5) var(--sp-6);
@@ -619,6 +695,50 @@
 		align-items: center;
 		justify-content: space-between;
 	}
+
+	/* Upload modal */
+	.modal-overlay {
+		position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); z-index: 1000;
+		display: flex; align-items: center; justify-content: center; padding: var(--sp-4);
+	}
+	.modal {
+		background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg);
+		padding: var(--sp-5); width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: var(--sp-3);
+	}
+	.modal-title { font-family: var(--font-sans); font-size: 18px; font-weight: 700; }
+	.modal-field { display: flex; flex-direction: column; gap: 4px; }
+	.field-label { font-size: 9px; letter-spacing: 0.08em; color: var(--text-tertiary); }
+	.modal-input {
+		padding: 8px 10px; background: var(--surface-3); border: 1px solid var(--border);
+		border-radius: 6px; color: var(--text-primary); font-size: 13px; outline: none;
+	}
+	.modal-input:focus { border-color: var(--accent); }
+	.modal-input::placeholder { color: var(--text-tertiary); }
+	.modal-files { display: flex; flex-direction: column; gap: 2px; max-height: 120px; overflow-y: auto; }
+	.file-name { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+	.modal-actions { display: flex; gap: var(--sp-2); }
+	.btn-primary {
+		padding: 8px 16px; font-size: 12px; font-weight: 600;
+		background: var(--accent); color: #000; border: none; border-radius: var(--radius-sm);
+		cursor: pointer; transition: all 0.15s;
+	}
+	.btn-primary:hover { background: #fff; }
+	.btn-secondary {
+		padding: 8px 16px; font-size: 12px;
+		background: transparent; color: var(--text-secondary); border: 1px solid var(--border);
+		border-radius: var(--radius-sm); cursor: pointer; transition: all 0.15s;
+	}
+	.btn-secondary:hover { color: var(--text-primary); border-color: var(--text-tertiary); }
+	.modal-hint { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+	.modal-error {
+		padding: var(--sp-2); background: rgba(255, 82, 82, 0.08); border: 1px solid rgba(255, 82, 82, 0.2);
+		border-radius: 6px; font-size: 11px; color: var(--state-error);
+	}
+	.modal-progress-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+	.progress-item { display: flex; align-items: center; gap: var(--sp-2); }
+	.progress-bar-sm { flex: 1; height: 4px; background: var(--surface-4); border-radius: 2px; overflow: hidden; }
+	.progress-fill-sm { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.3s; }
+	.progress-pct { font-size: 10px; color: var(--text-tertiary); min-width: 30px; text-align: right; }
 
 	.filter-bar {
 		display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap;
@@ -864,6 +984,11 @@
 
 	.project-header:hover {
 		background: var(--surface-3);
+	}
+	.project-header.drop-highlight {
+		background: rgba(255, 242, 3, 0.08);
+		border-color: var(--accent);
+		box-shadow: inset 0 0 12px rgba(255, 242, 3, 0.05);
 	}
 
 	.chevron {
