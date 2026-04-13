@@ -496,18 +496,18 @@ requires-dist = [
     { name = "boto3", marker = "extra == 's3'", specifier = ">=1.34" },
     { name = "corridorkey-mlx", marker = "python_full_version >= '3.11' and extra == 'mlx'", git = "https://github.com/nikopueringer/corridorkey-mlx.git" },
     { name = "desktop-notifier", specifier = ">=5.0" },
-    { name = "diffusers" },
+    { name = "diffusers", specifier = ">=0.27" },
     { name = "easydict" },
     { name = "einops" },
     { name = "fastapi", marker = "extra == 'web'", specifier = ">=0.115" },
     { name = "httpx", specifier = ">=0.27" },
-    { name = "huggingface-hub" },
+    { name = "huggingface-hub", specifier = ">=0.23" },
     { name = "imageio" },
     { name = "kornia" },
     { name = "matplotlib" },
     { name = "numpy" },
     { name = "opencv-python" },
-    { name = "peft" },
+    { name = "peft", specifier = ">=0.17.0" },
     { name = "pillow" },
     { name = "pims" },
     { name = "psutil", specifier = ">=5.9" },
@@ -2383,11 +2383,11 @@ dependencies = [
     { name = "setuptools", marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp310-cp310-linux_x86_64.whl", hash = "sha256:1ee0a5cf569175e63b43bc334dcaaf6f9b0d88eb455a452869c2bab14e1f7eb4" },
-    { url = "https://download.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp311-cp311-linux_x86_64.whl", hash = "sha256:b0362725d8e16d185251e3dcd48455ebf9cdaad2c26052bb47ef08a1d687ed20" },
-    { url = "https://download.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp312-cp312-linux_x86_64.whl", hash = "sha256:7afe951b9fc38f1a5b3a7b98bebbaa092bf51e6192b699b4fade9b1ad6fc9c2c" },
-    { url = "https://download.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp313-cp313-linux_x86_64.whl", hash = "sha256:1e7ccba3501fcd38e8cd8415f97a654043370e1fdc5a936bb75abe1bebeb94c9" },
-    { url = "https://download.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp313-cp313t-linux_x86_64.whl", hash = "sha256:c262cd42e38b6955391338cca1c3a779cceb8c51e4b45200d87305c870ef99d7" },
+    { url = "https://download-r2.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp310-cp310-linux_x86_64.whl", hash = "sha256:1ee0a5cf569175e63b43bc334dcaaf6f9b0d88eb455a452869c2bab14e1f7eb4" },
+    { url = "https://download-r2.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp311-cp311-linux_x86_64.whl", hash = "sha256:b0362725d8e16d185251e3dcd48455ebf9cdaad2c26052bb47ef08a1d687ed20" },
+    { url = "https://download-r2.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp312-cp312-linux_x86_64.whl", hash = "sha256:7afe951b9fc38f1a5b3a7b98bebbaa092bf51e6192b699b4fade9b1ad6fc9c2c" },
+    { url = "https://download-r2.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp313-cp313-linux_x86_64.whl", hash = "sha256:1e7ccba3501fcd38e8cd8415f97a654043370e1fdc5a936bb75abe1bebeb94c9" },
+    { url = "https://download-r2.pytorch.org/whl/pytorch_triton_rocm-3.4.0-cp313-cp313t-linux_x86_64.whl", hash = "sha256:c262cd42e38b6955391338cca1c3a779cceb8c51e4b45200d87305c870ef99d7" },
 ]
 
 [[package]]
@@ -2982,16 +2982,16 @@ dependencies = [
     { name = "typing-extensions", marker = "extra == 'extra-11-corridorkey-cuda' or (extra == 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:0c96999d15cf1f13dd7c913e0b21a9a355538e6cfc10861a17158320292f5954" },
-    { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp310-cp310-win_amd64.whl", hash = "sha256:43938e9a174c90e5eb9e906532b2f1e21532bbfa5a61b65193b4f54714d34f9e" },
-    { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:039b9dcdd6bdbaa10a8a5cd6be22c4cb3e3589a341e5f904cbb571ca28f55bed" },
-    { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp311-cp311-win_amd64.whl", hash = "sha256:34c55443aafd31046a7963b63d30bc3b628ee4a704f826796c865fdfd05bb596" },
-    { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:4354fc05bb79b208d6995a04ca1ceef6a9547b1c4334435574353d381c55087c" },
-    { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp312-cp312-win_amd64.whl", hash = "sha256:0ad925202387f4e7314302a1b4f8860fa824357f9b1466d7992bf276370ebcff" },
-    { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:3a852369a38dec343d45ecd0bc3660f79b88a23e0c878d18707f7c13bf49538f" },
-    { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp313-cp313-win_amd64.whl", hash = "sha256:9e20646802b7fc295c1f8b45fefcfc9fb2e4ec9cbe8593443cd2b9cc307c8405" },
-    { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:4295a22d69408e93d25f51e8d5d579345b6b802383e9414b0f3853ed433d53ae" },
-    { url = "https://download.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp313-cp313t-win_amd64.whl", hash = "sha256:970b4f4661fa7b44f6a7e6df65de7fc4a6fff2af610dc415c1d695ca5f1f37d2" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:0c96999d15cf1f13dd7c913e0b21a9a355538e6cfc10861a17158320292f5954" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp310-cp310-win_amd64.whl", hash = "sha256:43938e9a174c90e5eb9e906532b2f1e21532bbfa5a61b65193b4f54714d34f9e" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:039b9dcdd6bdbaa10a8a5cd6be22c4cb3e3589a341e5f904cbb571ca28f55bed" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp311-cp311-win_amd64.whl", hash = "sha256:34c55443aafd31046a7963b63d30bc3b628ee4a704f826796c865fdfd05bb596" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:4354fc05bb79b208d6995a04ca1ceef6a9547b1c4334435574353d381c55087c" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp312-cp312-win_amd64.whl", hash = "sha256:0ad925202387f4e7314302a1b4f8860fa824357f9b1466d7992bf276370ebcff" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:3a852369a38dec343d45ecd0bc3660f79b88a23e0c878d18707f7c13bf49538f" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp313-cp313-win_amd64.whl", hash = "sha256:9e20646802b7fc295c1f8b45fefcfc9fb2e4ec9cbe8593443cd2b9cc307c8405" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:4295a22d69408e93d25f51e8d5d579345b6b802383e9414b0f3853ed433d53ae" },
+    { url = "https://download-r2.pytorch.org/whl/cu128/torch-2.8.0%2Bcu128-cp313-cp313t-win_amd64.whl", hash = "sha256:970b4f4661fa7b44f6a7e6df65de7fc4a6fff2af610dc415c1d695ca5f1f37d2" },
 ]
 
 [[package]]
@@ -3015,11 +3015,11 @@ dependencies = [
     { name = "typing-extensions", marker = "(extra == 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-mlx') or (extra != 'extra-11-corridorkey-mlx' and extra == 'extra-11-corridorkey-rocm') or (extra != 'extra-11-corridorkey-cuda' and extra == 'extra-11-corridorkey-rocm')" },
 ]
 wheels = [
-    { url = "https://download.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:a492665402d52a71dc3d3c025153ead15ef9d993d1f39abd67dbf8b3d0fadd35" },
-    { url = "https://download.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:8312c2defbd8890fd3cf2fc01cfcc53678fe00891d1c8314901025991e21f081" },
-    { url = "https://download.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:de0bb7f98c977ad9c74312fc34d375747efc5c5ddee60a4cd5163fa729211602" },
-    { url = "https://download.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:2cdaac5545d66f11030914ae03c85d161f24b14053b67f49500a8f52638ef104" },
-    { url = "https://download.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:656892d4f59d1138aaade39fafa4a317a81a13238288a98a654a75cf80349774" },
+    { url = "https://download-r2.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp310-cp310-manylinux_2_28_x86_64.whl", hash = "sha256:a492665402d52a71dc3d3c025153ead15ef9d993d1f39abd67dbf8b3d0fadd35" },
+    { url = "https://download-r2.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp311-cp311-manylinux_2_28_x86_64.whl", hash = "sha256:8312c2defbd8890fd3cf2fc01cfcc53678fe00891d1c8314901025991e21f081" },
+    { url = "https://download-r2.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:de0bb7f98c977ad9c74312fc34d375747efc5c5ddee60a4cd5163fa729211602" },
+    { url = "https://download-r2.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp313-cp313-manylinux_2_28_x86_64.whl", hash = "sha256:2cdaac5545d66f11030914ae03c85d161f24b14053b67f49500a8f52638ef104" },
+    { url = "https://download-r2.pytorch.org/whl/rocm6.3/torch-2.8.0%2Brocm6.3-cp313-cp313t-manylinux_2_28_x86_64.whl", hash = "sha256:656892d4f59d1138aaade39fafa4a317a81a13238288a98a654a75cf80349774" },
 ]
 
 [[package]]
