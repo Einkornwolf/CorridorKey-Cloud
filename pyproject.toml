@@ -77,8 +77,6 @@ rocm = [
 s3 = [
     "boto3>=1.34",
 ]
-# Marker for torch sourced from system
-system-torch = []
 
 [dependency-groups]
 dev = ["pytest", "pytest-cov", "ruff", "hypothesis", "fakeredis[lua]"]
@@ -139,7 +137,6 @@ conflicts = [
         { extra = "cuda" },
         { extra = "mlx" },
         { extra = "rocm" },
-        { extra = "system-torch" },
     ],
 ]
 

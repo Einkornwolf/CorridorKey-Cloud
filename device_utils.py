@@ -318,6 +318,7 @@ def _enumerate_amd() -> list[GPUInfo] | None:
     # Windows: no amd-smi/rocm-smi, fall back to WMI
     return _enumerate_amd_windows()
 
+
 def _enumerate_torch() -> list[GPUInfo] | None:
     """Enumerate GPUs via torch. Returns None if unavailable."""
     try:
@@ -346,7 +347,6 @@ def _enumerate_torch() -> list[GPUInfo] | None:
     return None
 
 
-
 def enumerate_gpus() -> list[GPUInfo]:
     """List all available GPUs with VRAM info.
 
@@ -369,7 +369,7 @@ def enumerate_gpus() -> list[GPUInfo]:
     if gpus is not None:
         return gpus
 
-    #return empty list as a default
+    # return empty list as a default
     return []
 
 
@@ -474,8 +474,8 @@ def check_gpu_available(gpu_index: int = 0, min_free_gb: float = 0.0) -> tuple[b
 
     # Try PyTorch
     try:
-	    # Set the device to query
-        device = torch.device(f'cuda:{gpu_index}')
+        # Set the device to query
+        device = torch.device(f"cuda:{gpu_index}")
 
         # mem_get_info returns (free_bytes, total_bytes)
         free_bytes, _ = torch.cuda.mem_get_info(device)
