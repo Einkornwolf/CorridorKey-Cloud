@@ -58,7 +58,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
         uv venv --python "$(python3 -c 'import sys; print(sys.executable)')" --system-site-packages .venv && \
         uv sync --no-dev --no-install-project --no-install-package torch --no-install-package torchvision; \
     else \
-        # Standalone CUDA: pull torch from the PyTorch CUDA index (amd64 only).
         uv sync --frozen --no-dev --extra cuda --no-install-project; \
     fi
 
@@ -99,6 +98,7 @@ RUN mkdir -p CorridorKeyModule/checkpoints \
     /tmp/ck-work \
     /app/.cache/corridorkey \
     /app/.cache/matplotlib && \
+    # No hardcoded python version
     find .venv/lib -maxdepth 4 -name "corridorkey*.dist-info" \
         -exec chown -R nodeuser:nodeuser {} +
 
