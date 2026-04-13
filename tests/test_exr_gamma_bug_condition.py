@@ -42,12 +42,12 @@ linear_pixel_arrays = arrays(
         st.just(3),
     ),
     elements=st.floats(
-        min_value=0.0, 
-        max_value=1.0, 
-        allow_nan=False, 
+        min_value=0.0,
+        max_value=1.0,
+        allow_nan=False,
         allow_infinity=False,
         # Match float width to width in NumPy array
-        width = 32
+        width=32,
     ),
 )
 
@@ -56,34 +56,34 @@ linear_pixel_arrays = arrays(
 threshold_pixel_values = st.one_of(
     # Values below the threshold (linear segment of sRGB)
     st.floats(
-        min_value=0.0, 
+        min_value=0.0,
         # Use full 32-bit min value to satisfy Hypothesis
-        max_value=0.0031308000907301903, 
-        allow_nan=False, 
+        max_value=0.0031308000907301903,
+        allow_nan=False,
         allow_infinity=False,
         # Match float width to width in NumPy array
-        width = 32
+        width=32,
     ),
     # Values right around the threshold
     st.floats(
         # Use full 32-bit min value to satisfy Hypothesis
-        min_value=0.0020000000949949026, 
+        min_value=0.0020000000949949026,
         # Use full 32-bit min value to satisfy Hypothesis
-        max_value=0.004999999888241291, 
-        allow_nan=False, 
+        max_value=0.004999999888241291,
+        allow_nan=False,
         allow_infinity=False,
         # Match float width to width in NumPy array
-        width = 32
+        width=32,
     ),
     # Values above the threshold (power segment of sRGB)
     st.floats(
         # Use full 32-bit min value to satisfy Hypothesis
-        min_value=0.0031308000907301903, 
-        max_value=1.0, 
-        allow_nan=False, 
+        min_value=0.0031308000907301903,
+        max_value=1.0,
+        allow_nan=False,
         allow_infinity=False,
         # Match float width to width in NumPy array
-        width = 32
+        width=32,
     ),
 )
 

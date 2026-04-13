@@ -40,12 +40,12 @@ linear_pixel_arrays = arrays(
         st.just(3),
     ),
     elements=st.floats(
-        min_value=0.0, 
-        max_value=1.0, 
-        allow_nan=False, 
+        min_value=0.0,
+        max_value=1.0,
+        allow_nan=False,
         allow_infinity=False,
         # Match float width to width in NumPy array
-        width = 32
+        width=32,
     ),
 )
 
