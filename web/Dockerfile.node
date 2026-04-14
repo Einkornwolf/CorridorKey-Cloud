@@ -36,7 +36,7 @@ RUN if [ "$GPU_VENDOR" = "nvidia-container" ]; then \
         useradd --create-home nodeuser; \
     else \
         # Use UID 1000 normally
-        RUN useradd --create-home --uid 1000 nodeuser; \
+        useradd --create-home --uid 1000 nodeuser; \
     fi
 
 # Runtime deps for OpenCV and video I/O
