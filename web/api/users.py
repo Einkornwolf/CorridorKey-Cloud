@@ -110,6 +110,26 @@ class UserStore:
                     return
                 cur = conn.cursor()
 
+                # Ensure the table exists. init-db.sql only runs on first
+                # Postgres boot, so databases initialized before this fix
+                # need the table created at runtime.
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS ck.users (
+                        user_id TEXT PRIMARY KEY,
+                        email TEXT NOT NULL,
+                        tier TEXT NOT NULL DEFAULT 'pending',
+                        name TEXT NOT NULL DEFAULT '',
+                        company TEXT NOT NULL DEFAULT '',
+                        role TEXT NOT NULL DEFAULT '',
+                        use_case TEXT NOT NULL DEFAULT '',
+                        signed_up_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+                        approved_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+                        approved_by TEXT NOT NULL DEFAULT ''
+                    )
+                """)
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_ck_users_email ON ck.users (email)")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_ck_users_tier ON ck.users (tier)")
+
                 # Copy legacy blob → ck.users. Preserve whatever data the blob has.
                 cur.execute("SELECT value FROM ck.settings WHERE key = 'users'")
                 row = cur.fetchone()
