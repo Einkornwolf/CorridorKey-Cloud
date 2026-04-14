@@ -164,6 +164,19 @@ class PostgresBackend(StorageBackend):
                                 contributed_seconds FLOAT DEFAULT 0,
                                 consumed_seconds FLOAT DEFAULT 0,
                                 updated_at TIMESTAMPTZ DEFAULT NOW());
+                            CREATE TABLE IF NOT EXISTS ck.users (
+                                user_id TEXT PRIMARY KEY,
+                                email TEXT NOT NULL,
+                                tier TEXT NOT NULL DEFAULT 'pending',
+                                name TEXT NOT NULL DEFAULT '',
+                                company TEXT NOT NULL DEFAULT '',
+                                role TEXT NOT NULL DEFAULT '',
+                                use_case TEXT NOT NULL DEFAULT '',
+                                signed_up_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+                                approved_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+                                approved_by TEXT NOT NULL DEFAULT '');
+                            CREATE INDEX IF NOT EXISTS idx_ck_users_email ON ck.users (email);
+                            CREATE INDEX IF NOT EXISTS idx_ck_users_tier ON ck.users (tier);
                         """)
                         logger.info("Created ck schema and tables")
                     except Exception as schema_err:

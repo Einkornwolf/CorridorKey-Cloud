@@ -54,6 +54,24 @@ CREATE TABLE IF NOT EXISTS ck.gpu_credits (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Per-user records. Replaces the legacy ck.settings['users'] JSON blob,
+-- which was a read-modify-write hot spot across containers and lost writes
+-- under concurrent signups/approvals.
+CREATE TABLE IF NOT EXISTS ck.users (
+    user_id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    tier TEXT NOT NULL DEFAULT 'pending',
+    name TEXT NOT NULL DEFAULT '',
+    company TEXT NOT NULL DEFAULT '',
+    role TEXT NOT NULL DEFAULT '',
+    use_case TEXT NOT NULL DEFAULT '',
+    signed_up_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+    approved_at DOUBLE PRECISION NOT NULL DEFAULT 0,
+    approved_by TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_ck_users_email ON ck.users (email);
+CREATE INDEX IF NOT EXISTS idx_ck_users_tier ON ck.users (tier);
+
 -- Audit log (CRKY-20)
 CREATE TABLE IF NOT EXISTS ck.audit_log (
     id SERIAL PRIMARY KEY,
