@@ -222,6 +222,30 @@ class UserStore:
                 # above via blob_by_email lookup.
                 cur.execute("DELETE FROM ck.users WHERE user_id LIKE '%@%'")
 
+                # Recover users whose tier was lost from both the blob
+                # and auth.users. If they own a personal org, they were
+                # previously approved (ensure_personal_org only runs
+                # during approve_user), so promote them back to 'member'.
+                # This rescues users hit by the combined blob race +
+                # NULL raw_app_meta_data bug in _update_supabase_tier.
+                cur.execute("SELECT value FROM ck.settings WHERE key = 'orgs'")
+                row = cur.fetchone()
+                orgs_blob = {}
+                if row and row[0]:
+                    orgs_blob = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+                approved_owners: set[str] = {
+                    org["owner_id"]
+                    for org in orgs_blob.values()
+                    if isinstance(org, dict) and org.get("personal") and org.get("owner_id")
+                }
+                if approved_owners:
+                    cur.execute(
+                        "UPDATE ck.users SET tier = 'member' WHERE tier = 'pending' AND user_id = ANY(%s)",
+                        (list(approved_owners),),
+                    )
+                    if cur.rowcount:
+                        logger.info(f"Recovered {cur.rowcount} users from pending via personal-org ownership")
+
                 cur.close()
             self._migrated = True
             logger.info("ck.users migration/backfill complete")
@@ -496,7 +520,13 @@ def _update_supabase_tier(user_id: str, tier: str) -> None:
             cur = conn.cursor()
             meta_patch = json.dumps({"tier": tier})
             cur.execute(
-                "UPDATE auth.users SET raw_app_meta_data = raw_app_meta_data || %s::jsonb WHERE id = %s::uuid",
+                # COALESCE guards against raw_app_meta_data being NULL:
+                # `NULL || jsonb` returns NULL in Postgres, which would
+                # silently drop the tier update on users created without
+                # initial app metadata.
+                "UPDATE auth.users "
+                "SET raw_app_meta_data = COALESCE(raw_app_meta_data, '{}'::jsonb) || %s::jsonb "
+                "WHERE id = %s::uuid",
                 (meta_patch, user_id),
             )
             updated = cur.rowcount
