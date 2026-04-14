@@ -9,7 +9,6 @@ authors = [{ name = "Corridor Digital" }]
 
 dependencies = [
     # Core inference
-    # torch and torchvision not included here so NVIDIA NGC container can use system version of pytorch
     #   Standalone CUDA:       uv sync --extra cuda
     #   ROCm / AMD:            uv sync --extra rocm
     #   NVIDIA container:      uv sync --no-install-package torch --no-install-package torchvision
