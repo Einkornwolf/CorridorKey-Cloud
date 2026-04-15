@@ -14,6 +14,7 @@ Org member roles: owner, admin, member (distinct from platform trust tiers).
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
 from dataclasses import dataclass
@@ -73,6 +74,12 @@ class OrgStore:
         from .database import get_storage
 
         self._storage = get_storage()
+        # Serializes check-then-create for personal orgs. The blob-backed
+        # settings store has no row-level uniqueness, so parallel first-login
+        # requests (auth middleware + admin approval + tier change) can each
+        # observe "no personal org" and each create one. This lock closes the
+        # window within a single process.
+        self._personal_org_lock = threading.Lock()
 
     def _load_orgs(self) -> dict[str, dict]:
         return self._storage.get_setting("orgs", {})
@@ -127,26 +134,55 @@ class OrgStore:
         orgs = self._load_orgs()
         return [Org(**orgs[oid]) for oid in org_ids if oid in orgs]
 
+    def _list_personal_orgs(self, user_id: str) -> list[Org]:
+        """Return every personal org owned by the user, oldest first."""
+        personals = [
+            org for org in self.list_user_orgs(user_id) if org.personal and org.owner_id == user_id
+        ]
+        personals.sort(key=lambda o: (o.created_at, o.org_id))
+        return personals
+
     def get_personal_org(self, user_id: str) -> Org | None:
-        """Get a user's personal org, if one exists."""
-        for org in self.list_user_orgs(user_id):
-            if org.personal and org.owner_id == user_id:
-                return org
-        return None
+        """Get a user's personal org, if one exists.
+
+        If duplicates already exist from earlier races, return the oldest
+        (by created_at) so the caller sees a stable identity.
+        """
+        personals = self._list_personal_orgs(user_id)
+        return personals[0] if personals else None
 
     def ensure_personal_org(self, user_id: str, email: str, display_name: str = "") -> Org:
-        """Get or create the user's personal org."""
-        existing = self.get_personal_org(user_id)
-        if existing:
-            return existing
-        # Prefer the user's display name, fall back to email prefix
-        if display_name and display_name.strip():
-            name = display_name.strip()
-        elif email:
-            name = email.split("@")[0]
-        else:
-            name = user_id[:8]
-        return self.create_org(name=f"{name}'s workspace", owner_id=user_id, personal=True)
+        """Get or create the user's personal org.
+
+        Serialized with a process-wide lock so concurrent first-login
+        requests do not each create a duplicate. Also defensively merges
+        any pre-existing duplicates from prior race incidents by deleting
+        the extras and migrating their members into the canonical org.
+        """
+        with self._personal_org_lock:
+            personals = self._list_personal_orgs(user_id)
+            if personals:
+                canonical = personals[0]
+                for extra in personals[1:]:
+                    logger.warning(
+                        "Removing duplicate personal org %s for user %s (keeping %s)",
+                        extra.org_id,
+                        user_id,
+                        canonical.org_id,
+                    )
+                    for member in self.list_members(extra.org_id):
+                        if member.user_id != user_id:
+                            self.add_member(canonical.org_id, member.user_id, role=member.role)
+                    self.delete_org(extra.org_id)
+                return canonical
+            # Prefer the user's display name, fall back to email prefix
+            if display_name and display_name.strip():
+                name = display_name.strip()
+            elif email:
+                name = email.split("@")[0]
+            else:
+                name = user_id[:8]
+            return self.create_org(name=f"{name}'s workspace", owner_id=user_id, personal=True)
 
     def add_member(self, org_id: str, user_id: str, role: str = "member") -> OrgMember:
         """Add a user to an org. No-op if already a member."""
