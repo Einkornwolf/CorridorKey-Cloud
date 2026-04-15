@@ -55,6 +55,14 @@
 	let busyCount = $derived($nodes.filter(n => n.status === 'busy').length);
 	let totalGpus = $derived($nodes.reduce((s, n) => s + (n.gpus?.length || (n.gpu_name ? 1 : 0)), 0));
 
+	// Status-grouped lists for the render farm page. isOutdated takes
+	// priority over online so a live-but-stale node surfaces in the
+	// outdated section rather than hiding in online.
+	let onlineNodes = $derived($nodes.filter(n => isAlive(n) && !isOutdated(n)));
+	let outdatedNodes = $derived($nodes.filter(n => isAlive(n) && isOutdated(n)));
+	let offlineNodes = $derived($nodes.filter(n => !isAlive(n)));
+	let offlineCollapsed = $state(true);
+
 	function isAlive(n: NodeInfo): boolean {
 		return (Date.now() / 1000 - n.last_heartbeat) < 60;
 	}
@@ -250,17 +258,15 @@
 	{/if}
 
 	<!-- Node grid -->
-	{#if $nodes.length > 0}
-		<div class="node-grid">
-			{#each $nodes as node (node.node_id)}
-				{@const sc = statusClass(node)}
-				<div class="node-card" class:expanded={expandedNode === node.node_id}>
-					<button class="card-main" onclick={() => expandedNode = expandedNode === node.node_id ? null : node.node_id}>
-						<div class="card-top">
-							<span class="status-dot {sc}"></span>
-							<span class="node-name">{node.name}</span>
-							<span class="status-label mono {sc}">{statusLabel(node)}</span>
-						</div>
+	{#snippet nodeCard(node: NodeInfo)}
+		{@const sc = statusClass(node)}
+		<div class="node-card" class:expanded={expandedNode === node.node_id}>
+			<button class="card-main" onclick={() => expandedNode = expandedNode === node.node_id ? null : node.node_id}>
+				<div class="card-top">
+					<span class="status-dot {sc}"></span>
+					<span class="node-name">{node.name}</span>
+					<span class="status-label mono {sc}">{statusLabel(node)}</span>
+				</div>
 						{#if node.gpus?.length > 0}
 							{#each node.gpus as gpu}
 								<div class="gpu-row">
@@ -401,8 +407,55 @@
 						</div>
 					{/if}
 				</div>
-			{/each}
-		</div>
+	{/snippet}
+
+	{#if $nodes.length > 0}
+		{#if onlineNodes.length > 0}
+			<section class="node-group">
+				<header class="group-header">
+					<span class="group-dot online"></span>
+					<h2 class="group-title mono">ONLINE</h2>
+					<span class="group-count mono">{onlineNodes.length}</span>
+				</header>
+				<div class="node-grid">
+					{#each onlineNodes as node (node.node_id)}{@render nodeCard(node)}{/each}
+				</div>
+			</section>
+		{/if}
+
+		{#if outdatedNodes.length > 0}
+			<section class="node-group">
+				<header class="group-header">
+					<span class="group-dot outdated"></span>
+					<h2 class="group-title mono">OUTDATED</h2>
+					<span class="group-count mono">{outdatedNodes.length}</span>
+					<span class="group-hint mono">update to rejoin online</span>
+				</header>
+				<div class="node-grid">
+					{#each outdatedNodes as node (node.node_id)}{@render nodeCard(node)}{/each}
+				</div>
+			</section>
+		{/if}
+
+		{#if offlineNodes.length > 0}
+			<section class="node-group" class:collapsed={offlineCollapsed}>
+				<button
+					type="button"
+					class="group-header group-toggle mono"
+					onclick={() => (offlineCollapsed = !offlineCollapsed)}
+				>
+					<span class="group-dot offline"></span>
+					<h2 class="group-title mono">OFFLINE</h2>
+					<span class="group-count mono">{offlineNodes.length}</span>
+					<span class="group-chevron mono">{offlineCollapsed ? '▸' : '▾'}</span>
+				</button>
+				{#if !offlineCollapsed}
+					<div class="node-grid">
+						{#each offlineNodes as node (node.node_id)}{@render nodeCard(node)}{/each}
+					</div>
+				{/if}
+			</section>
+		{/if}
 	{:else}
 		<div class="empty-state">
 			<p class="empty-text">No nodes connected</p>
@@ -422,6 +475,29 @@
 	.stat-dot { width: 6px; height: 6px; border-radius: 50%; }
 	.stat-dot.online { background: var(--state-complete); }
 	.stat-dot.busy { background: var(--accent); }
+
+	/* Node groups (CRKY-182): online / outdated / offline sections */
+	.node-group { display: flex; flex-direction: column; gap: var(--sp-2); }
+	.group-header {
+		display: flex; align-items: center; gap: var(--sp-2);
+		padding: var(--sp-1) 0; border: none; background: transparent; width: 100%;
+		color: inherit; text-align: left;
+	}
+	.group-toggle { cursor: pointer; }
+	.group-toggle:hover .group-title { color: var(--text-primary); }
+	.group-dot { width: 8px; height: 8px; border-radius: 50%; }
+	.group-dot.online { background: var(--state-complete); box-shadow: 0 0 6px var(--state-complete); }
+	.group-dot.outdated { background: var(--state-error); }
+	.group-dot.offline { background: var(--text-tertiary); }
+	.group-title { font-size: 10px; letter-spacing: 0.12em; font-weight: 600; color: var(--text-tertiary); margin: 0; }
+	.group-count {
+		display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 18px;
+		padding: 0 6px; font-size: 10px; border-radius: 9px;
+		background: var(--surface-3); color: var(--text-secondary);
+	}
+	.group-hint { font-size: 10px; color: var(--text-tertiary); font-style: italic; }
+	.group-chevron { margin-left: auto; font-size: 11px; color: var(--text-tertiary); }
+	.node-group.collapsed .node-grid { display: none; }
 
 	.header-actions { display: flex; gap: var(--sp-2); }
 	.btn-ghost {
