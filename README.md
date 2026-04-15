@@ -63,6 +63,8 @@ uv run uvicorn web.api.app:create_app --factory --port 3000
 
 CorridorKey Cloud runs on a distributed render farm powered by the community. Connect your idle GPU as a node — it processes jobs for other users, and you earn credits to process your own footage.
 
+> **Minimum 10 GB VRAM to contribute a node.** Farm nodes run the full pipeline, including GVM alpha-hint generation (~8 GB) and inference (~4 GB with headroom). Cards with 8 GB (RTX 3070 / 4060 / 5070 etc.) will be rejected at registration with a 403 because they can't complete a full job without OOM'ing. Self-hosted installs that only run inference can still use 8 GB cards — the limit is farm-side only, and the server operator can tune it via `CK_MIN_NODE_VRAM_GB`.
+
 ### Option 1: Docker (Linux)
 
 From the Nodes page in the web UI, select your GPU type (NVIDIA or AMD), generate a token, and copy the Docker Compose file. Or manually:
@@ -170,7 +172,9 @@ The standalone binary ships with CPU torch and downloads GPU acceleration (CUDA 
 | Apple Silicon M1+ | 8GB+ unified | Supported (MLX backend) |
 | Intel ARC | | Community extension: [CorridorKeyOpenVINO](https://github.com/daniil-lyakhov/CorridorKeyOpenVINO) |
 
-**Minimum VRAM:** 6-8GB for inference. CorridorKey processes at 2048x2048 internally and scales output back to your original resolution.
+**Minimum VRAM for local inference:** 6-8 GB. CorridorKey processes at 2048x2048 internally and scales output back to your original resolution.
+
+**Minimum VRAM for contributing a farm node:** 10 GB. Farm nodes also run GVM alpha-hint generation (~8 GB) on top of inference, so 8 GB cards like the RTX 3070 / 4060 / 5070 are rejected at registration. See [Contributing a GPU Node](#contributing-a-gpu-node).
 
 ## Platform Features
 
