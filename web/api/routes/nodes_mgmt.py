@@ -20,7 +20,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
 
 from ..auth import AUTH_ENABLED, UserContext, get_current_user
-from ..database import get_storage
 from ..deps import get_node_state
 from ..node_tokens import get_node_token_store
 from ..nodes import NodeInfo, NodeSchedule
@@ -79,15 +78,17 @@ def _require_node_access(request: Request, node_id: str, manage: bool = False) -
 
 def _save_node_config(node_id: str, node: NodeInfo) -> None:
     """Persist UI-configurable node settings and write back to state backend."""
-    storage = get_storage()
-    configs = storage.get_setting("node_configs", {})
-    configs[node_id] = {
-        "paused": node.paused,
-        "visibility": node.visibility,
-        "schedule": node.schedule.to_dict(),
-        "accepted_types": node.accepted_types,
-    }
-    storage.set_setting("node_configs", configs)
+    from ..node_config_store import save_node_config
+
+    save_node_config(
+        node_id,
+        {
+            "paused": node.paused,
+            "visibility": node.visibility,
+            "schedule": node.schedule.to_dict(),
+            "accepted_types": node.accepted_types,
+        },
+    )
     # Write mutated node back to state backend (required for Redis — in-memory is a no-op)
     get_node_state().update_node(node_id, node)
 
