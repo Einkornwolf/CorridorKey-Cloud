@@ -30,8 +30,37 @@ def is_frozen() -> bool:
 
 
 def get_current_version() -> str:
-    """Get the current build version from env or embedded metadata."""
+    """Get the current build commit (short) from env or embedded metadata.
+
+    Returned for display only. Update comparisons use the build number
+    (unix timestamp) via ``_current_build_number`` — commit hashes are
+    not ordered and must not be compared with ``>``.
+    """
     return os.environ.get("CK_BUILD_COMMIT", "dev")
+
+
+def _current_build_number() -> int:
+    """Current build number (unix timestamp), 0 if unknown.
+
+    Prefers the environment variable set by Docker/release tooling, then
+    falls back to the embedded ``_version.env`` bundled next to the
+    frozen binary. Matches the resolution used by agent._get_local_build_number.
+    """
+    env_val = os.environ.get("CK_BUILD_NUMBER", "").strip()
+    if env_val:
+        try:
+            return int(env_val)
+        except ValueError:
+            pass
+    # Lazy import to avoid a hard dependency cycle at module load.
+    try:
+        from .agent import _get_local_build_number
+    except Exception:
+        return 0
+    try:
+        return int(_get_local_build_number() or 0)
+    except Exception:
+        return 0
 
 
 def get_install_dir() -> str:
@@ -49,11 +78,24 @@ def _staging_dir() -> str:
 
 
 def check_for_update() -> dict | None:
-    """Check GitHub Releases API for a newer version.
+    """Check GitHub Releases API for a newer node release.
 
     Returns release info dict if an update is available, None otherwise.
+
+    Version comparison uses the build number (unix timestamp) against the
+    release's ``published_at``. The ``node-v*`` tag is semver, but the
+    binary has no semver embedded — only a commit SHA and build timestamp
+    — so we compare timestamps. This also sidesteps the force-pushable
+    ``cloud`` tag: only ``node-v*`` releases are considered.
     """
+    from datetime import datetime
+
     import httpx
+
+    current_build = _current_build_number()
+    if current_build <= 0:
+        logger.debug("No build number available — skipping update check")
+        return None
 
     try:
         url = f"https://api.github.com/repos/{_GITHUB_REPO}/releases"
@@ -61,31 +103,38 @@ def check_for_update() -> dict | None:
         r.raise_for_status()
         releases = r.json()
 
-        # Find the latest node release (tagged node-v*)
+        # Find the latest node release (tagged node-v*, newest first).
         for release in releases:
             tag = release.get("tag_name", "")
             if not tag.startswith("node-v"):
                 continue
+            if release.get("draft") or release.get("prerelease"):
+                continue
 
-            # Compare with current version
-            current = get_current_version()
-            if current == "dev":
-                return None  # running from source, skip updates
+            published = release.get("published_at") or release.get("created_at")
+            if not published:
+                return None
+            try:
+                published_ts = int(
+                    datetime.fromisoformat(published.replace("Z", "+00:00")).timestamp()
+                )
+            except ValueError:
+                return None
 
-            # Check if this release is newer (by build number / tag comparison)
-            release_version = tag.removeprefix("node-")
-            if release_version != f"v{current}" and release_version > f"v{current}":
-                # Find the right asset for this platform
-                asset = _find_asset(release.get("assets", []))
-                if asset:
-                    return {
-                        "tag": tag,
-                        "version": release_version,
-                        "download_url": asset["browser_download_url"],
-                        "size": asset["size"],
-                        "name": asset["name"],
-                    }
-            break  # only check latest node release
+            if published_ts <= current_build:
+                return None  # latest release is not newer than our build
+
+            asset = _find_asset(release.get("assets", []))
+            if not asset:
+                logger.info("Update %s available but no asset matches this platform", tag)
+                return None
+            return {
+                "tag": tag,
+                "version": tag.removeprefix("node-"),
+                "download_url": asset["browser_download_url"],
+                "size": asset["size"],
+                "name": asset["name"],
+            }
 
     except Exception:
         logger.debug("Update check failed", exc_info=True)
