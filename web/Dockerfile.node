@@ -10,7 +10,7 @@
 # Build (NVIDIA NGC):   docker build -f web/Dockerfile.node --build-arg GPU_VENDOR=nvidia-ngc -t corridorkey-node:nvidia-ngc .
 # Run (NVIDIA):         docker run --gpus all -e CK_MAIN_URL=http://host:3000 corridorkey-node:nvidia
 # Run (AMD):            docker run --device /dev/kfd --device /dev/dri -e CK_MAIN_URL=http://host:3000 corridorkey-node:amd
-# Run (NVIDIA NGC):     docker run --gpus all --ipc=host --ulimit memlock=1 --ulimit stack=67108864 -e CK_MAIN_URL=http://host:3000 corridorkey-node:nvidia-ngc
+# Run (NVIDIA NGC):     docker run --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 -e CK_MAIN_URL=http://host:3000 corridorkey-node:nvidia-ngc
 
 ARG GPU_VENDOR=nvidia
 # Only consumed by the nvidia-ngc stage; ignored for other vendors.
