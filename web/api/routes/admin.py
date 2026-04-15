@@ -371,14 +371,22 @@ def get_platform_stats():
     queue = get_queue()
     nodes = get_node_state().list_nodes()
 
+    # Fold users into a single pass so the endpoint stays O(n) regardless of
+    # how many tiers we track. Always report every known tier (including
+    # zero-count ones) so the dashboard renders a stable list instead of
+    # omitting rows silently.
+    _known_tiers = ["pending", "member", "contributor", "org_admin", "platform_admin", "rejected"]
+    by_tier: dict[str, int] = {t: 0 for t in _known_tiers}
+    for u in all_users:
+        if u.tier in by_tier:
+            by_tier[u.tier] += 1
+        else:
+            by_tier[u.tier] = by_tier.get(u.tier, 0) + 1
+
     return {
         "users": {
             "total": len(all_users),
-            "by_tier": {
-                tier: len([u for u in all_users if u.tier == tier])
-                for tier in ["pending", "member", "contributor", "org_admin", "platform_admin", "rejected"]
-                if any(u.tier == tier for u in all_users)
-            },
+            "by_tier": by_tier,
         },
         "orgs": {
             "total": len(all_orgs),

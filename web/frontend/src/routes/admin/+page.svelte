@@ -19,16 +19,22 @@
 
 	onMount(async () => {
 		try {
+			// /api/admin/users and /api/admin/users/pending are now paginated
+			// (CRKY-179) and return {users, total, limit, offset}. We want
+			// the real count, not the size of the first page, so read total.
+			// /api/admin/stats already walks every user server-side for the
+			// by-tier breakdown, so we prefer its numbers when present and
+			// fall back to the paginated total only if stats is missing.
 			const [statsRes, usersRes, pendingRes, orgsRes] = await Promise.all([
 				adminFetch('/api/admin/stats'),
-				adminFetch('/api/admin/users'),
-				adminFetch('/api/admin/users/pending'),
+				adminFetch('/api/admin/users?limit=1'),
+				adminFetch('/api/admin/users/pending?limit=1'),
 				adminFetch('/api/admin/orgs'),
 			]);
 			stats = statsRes;
-			userCount = usersRes.users?.length ?? 0;
-			pendingCount = pendingRes.users?.length ?? 0;
-			orgCount = orgsRes.orgs?.length ?? 0;
+			userCount = statsRes?.users?.total ?? usersRes.total ?? usersRes.users?.length ?? 0;
+			pendingCount = pendingRes.total ?? pendingRes.users?.length ?? 0;
+			orgCount = statsRes?.orgs?.total ?? orgsRes.orgs?.length ?? 0;
 		} catch { /* ignore */ }
 		finally { loading = false; }
 	});
