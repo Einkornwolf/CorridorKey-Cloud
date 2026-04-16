@@ -294,7 +294,7 @@ class OrgStore:
                 cur.execute(
                     f"""INSERT INTO ck.orgs ({_ORG_COLS})
                         VALUES (%s, %s, %s, TRUE, %s)
-                        ON CONFLICT ON CONSTRAINT orgs_one_personal_per_owner DO NOTHING
+                        ON CONFLICT (owner_id) WHERE personal = TRUE DO NOTHING
                         RETURNING {_ORG_COLS}""",
                     (org_id, workspace_name, user_id, now),
                 )
@@ -497,6 +497,147 @@ class OrgStore:
         members = self._load_members_blob()
         self._save_members_blob([m for m in members if m["org_id"] != org_id])
         return True
+
+
+def heal_missing_personal_orgs() -> int:
+    """Full startup heal for org/membership/token consistency.
+
+    Covers five failure modes discovered during the 2026-04-15
+    incident where a manual org prune + the CRKY-61 email-to-UUID
+    migration left users, orgs, memberships, and node tokens in
+    various broken states:
+
+    1. Ghost memberships whose user_id is an email (pre-CRKY-61)
+       or a UUID that no longer exists in ck.users. These prevent
+       the heal from inserting the correct UUID-keyed membership
+       because the ghost row occupies the (org_id, user_id) slot
+       for the email key. Delete them first.
+    2. Orphan personal orgs whose owner_id doesn't resolve to a
+       ck.users row. The owner is gone; the org serves nobody.
+    3. Missing personal orgs for approved users who lost theirs to
+       a manual prune or a dedup pass.
+    4. Missing owner membership rows for personal orgs that exist
+       but whose owner isn't in ck.org_members for that org (the
+       "Hunt" bug: org exists, membership doesn't, UI says "No
+       organizations").
+    5. Node tokens whose org_id points at a deleted org. Re-links
+       them to the token creator's current personal org so nodes
+       re-register under the right org on next heartbeat.
+
+    Idempotent. Every statement uses EXISTS guards, ON CONFLICT DO
+    NOTHING, or conditional JOINs so re-running is a no-op when the
+    state is already consistent. Safe to call on every container
+    startup.
+
+    Returns the number of personal orgs inserted (step 3).
+    """
+    from .database import get_pg_conn
+
+    with get_pg_conn() as conn:
+        if conn is None:
+            return 0
+        cur = conn.cursor()
+        try:
+            # Step 1: delete ghost memberships whose user_id isn't in
+            # ck.users (email-keyed leftovers from pre-CRKY-61).
+            cur.execute(
+                """
+                DELETE FROM ck.org_members m
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM ck.users u WHERE u.user_id = m.user_id
+                )
+                """
+            )
+            ghost_members = cur.rowcount
+            if ghost_members:
+                logger.info("Org heal: removed %d ghost membership(s)", ghost_members)
+
+            # Step 2: drop orphan personal orgs whose owner is gone.
+            cur.execute(
+                """
+                DELETE FROM ck.orgs o
+                WHERE o.personal = TRUE
+                  AND NOT EXISTS (
+                      SELECT 1 FROM ck.users u WHERE u.user_id = o.owner_id
+                  )
+                """
+            )
+            orphan_orgs = cur.rowcount
+            if orphan_orgs:
+                logger.info("Org heal: removed %d orphan personal org(s)", orphan_orgs)
+
+            # Step 3: insert missing personal orgs.
+            cur.execute(
+                """
+                INSERT INTO ck.orgs (org_id, name, owner_id, personal, created_at)
+                SELECT
+                    substring(replace(gen_random_uuid()::text, '-', ''), 1, 12),
+                    COALESCE(NULLIF(u.name, ''), split_part(u.email, '@', 1))
+                        || '''s workspace',
+                    u.user_id,
+                    TRUE,
+                    EXTRACT(EPOCH FROM NOW())
+                FROM ck.users u
+                WHERE u.tier NOT IN ('pending', 'rejected')
+                  AND NOT EXISTS (
+                      SELECT 1 FROM ck.orgs o
+                      WHERE o.owner_id = u.user_id AND o.personal = TRUE
+                  )
+                ON CONFLICT (owner_id) WHERE personal = TRUE DO NOTHING
+                """
+            )
+            inserted = cur.rowcount
+
+            # Step 4: ensure owner membership for every personal org.
+            cur.execute(
+                """
+                INSERT INTO ck.org_members (org_id, user_id, role, joined_at)
+                SELECT o.org_id, o.owner_id, 'owner', o.created_at
+                FROM ck.orgs o
+                WHERE o.personal = TRUE
+                  AND NOT EXISTS (
+                      SELECT 1 FROM ck.org_members m
+                      WHERE m.org_id = o.org_id AND m.user_id = o.owner_id
+                  )
+                ON CONFLICT (org_id, user_id) DO NOTHING
+                """
+            )
+            membership_fixes = cur.rowcount
+
+            # Step 5: re-link node tokens whose org_id is stale.
+            cur.execute(
+                """
+                UPDATE ck.node_tokens t
+                SET org_id = new_org.org_id
+                FROM (
+                    SELECT t2.token, o.org_id
+                    FROM ck.node_tokens t2
+                    JOIN ck.orgs o
+                      ON o.owner_id = t2.created_by AND o.personal = TRUE
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM ck.orgs o2 WHERE o2.org_id = t2.org_id
+                    )
+                ) new_org
+                WHERE t.token = new_org.token
+                """
+            )
+            token_fixes = cur.rowcount
+
+            if inserted or membership_fixes or ghost_members or orphan_orgs or token_fixes:
+                logger.info(
+                    "Org heal complete: "
+                    "+%d org(s), +%d membership(s), "
+                    "-%d ghost member(s), -%d orphan org(s), "
+                    "~%d token(s) re-linked",
+                    inserted,
+                    membership_fixes,
+                    ghost_members,
+                    orphan_orgs,
+                    token_fixes,
+                )
+            return int(inserted or 0)
+        finally:
+            cur.close()
 
 
 # Singleton

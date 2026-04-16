@@ -215,6 +215,15 @@ async def lifespan(app: FastAPI):
     worker_thread, stop_event = start_worker(service, queue, clips_dir)
     reaper_thread = start_reaper(queue, state.nodes, stop_event)
 
+    # One-shot heal for approved users who lost their personal org
+    # (manual prune, earlier dedup pass, etc). Idempotent, cheap.
+    try:
+        from .orgs import heal_missing_personal_orgs
+
+        heal_missing_personal_orgs()
+    except Exception:
+        logger.warning("Personal org heal failed on startup", exc_info=True)
+
     # Start clip retention cleanup daemon (CRKY-115)
     from .clip_retention import start_cleanup
 
