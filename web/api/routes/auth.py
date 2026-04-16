@@ -16,7 +16,7 @@ import secrets
 import time
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from ..auth import AUTH_ENABLED
 from ..database import get_storage
@@ -33,7 +33,7 @@ class LoginRequest(BaseModel):
 
 
 class SignupRequest(BaseModel):
-    email: str
+    email: EmailStr
     password: str
     name: str = ""
     invite_token: str = ""
@@ -42,7 +42,7 @@ class SignupRequest(BaseModel):
 class RegisterRequest(BaseModel):
     """Open registration — no invite token required (CRKY-103)."""
 
-    email: str
+    email: EmailStr
     password: str
     name: str = ""
     company: str = ""
@@ -498,10 +498,16 @@ def open_register(req: RegisterRequest):
     if not req.email or not req.password:
         raise HTTPException(status_code=400, detail="Email and password required")
 
-    # Check if email is already registered
+    # Anti-enumeration: return the same 200 response regardless of
+    # whether the email already exists. Attackers probing common
+    # addresses (admin@, support@, info@) get no signal about which
+    # accounts are real.
+    _generic_response = {"status": "created", "message": "Check your email to verify your account"}
+
     user_store = get_user_store()
     if user_store.get_user_by_email(req.email):
-        raise HTTPException(status_code=409, detail="An account with this email already exists")
+        logger.debug("Registration attempt for existing email (anti-enum: returning generic 200)")
+        return _generic_response
 
     gotrue_url = os.environ.get(
         "CK_GOTRUE_INTERNAL_URL", os.environ.get("CK_GOTRUE_URL", "http://localhost:54324")
@@ -547,7 +553,9 @@ def open_register(req: RegisterRequest):
     except Exception as e:
         error_msg = str(e)
         if "already been registered" in error_msg.lower() or "duplicate" in error_msg.lower():
-            raise HTTPException(status_code=409, detail="An account with this email already exists") from e
+            # GoTrue rejected the duplicate. Don't leak that info.
+            logger.debug("GoTrue rejected duplicate email (anti-enum: returning generic 200)")
+            return _generic_response
         logger.error(f"GoTrue registration error: {e}")
         raise HTTPException(status_code=502, detail="Failed to create user account") from e
 
@@ -561,7 +569,7 @@ def open_register(req: RegisterRequest):
     )
     logger.info(f"Open registration: {req.email} → pending (company={req.company!r})")
 
-    return {"status": "created", "user_id": user_id}
+    return _generic_response
 
 
 @router.get("/invites", dependencies=[Depends(require_admin)])

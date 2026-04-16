@@ -37,6 +37,20 @@ TIER_LIMITS: dict[str, tuple[int, int]] = {
 # Default for unknown tiers or unauthenticated
 DEFAULT_LIMIT = (120, 10)
 
+# Auth-sensitive endpoints get a much tighter per-IP limit to slow
+# down enumeration, credential stuffing, and automated signups.
+# 10 req/min is enough for a human to make a few typos; not enough
+# for bulk probing.
+_AUTH_RATE_LIMIT = 10  # requests per minute per IP
+_AUTH_RATE_PREFIXES = (
+    "/api/auth/signup",
+    "/api/auth/register",
+    "/api/auth/login",
+    "/api/auth/invite/consume",
+    "/api/auth/invite/validate",
+    "/api/auth/reset-password",
+)
+
 # Paths that are never rate-limited (high-frequency or critical)
 EXEMPT_PREFIXES = (
     "/_app/",
@@ -104,6 +118,7 @@ class _SlidingWindow:
 # Global counters
 _request_counter = _SlidingWindow()
 _job_counter = _SlidingWindow()
+_auth_counter = _SlidingWindow()
 
 
 def _get_rate_key(request: Request) -> tuple[str, str]:
@@ -133,6 +148,19 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         if not path.startswith("/api/") and request.method == "GET":
             return await call_next(request)
+
+        # Auth-sensitive endpoints get a separate, tighter per-IP limit
+        # regardless of tier. This fires BEFORE the general rate check
+        # so enumeration bots hit the wall fast.
+        if request.method == "POST" and any(path.startswith(p) for p in _AUTH_RATE_PREFIXES):
+            ip = request.client.host if request.client else "unknown"
+            auth_allowed, _ = _auth_counter.check_and_record(f"ip:{ip}:auth", _AUTH_RATE_LIMIT, 60.0)
+            if not auth_allowed:
+                return JSONResponse(
+                    status_code=429,
+                    content={"detail": "Too many attempts. Try again shortly."},
+                    headers={"Retry-After": "60", "X-RateLimit-Remaining": "0"},
+                )
 
         key, tier = _get_rate_key(request)
         req_limit, _ = TIER_LIMITS.get(tier, DEFAULT_LIMIT)
