@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { InferenceParams, OutputConfig } from '$lib/api';
+	import PresetSelector from './PresetSelector.svelte';
 
 	let {
 		params = $bindable<InferenceParams>({
@@ -27,9 +28,20 @@
 	function clamp(val: number, min: number, max: number): number {
 		return Math.min(max, Math.max(min, val));
 	}
+
+	function applyPreset(p: InferenceParams, oc: OutputConfig) {
+		params = { ...p };
+		outputConfig = { ...oc };
+	}
 </script>
 
 <div class="form-panel">
+	<PresetSelector
+		onApply={applyPreset}
+		currentParams={params}
+		currentOutputConfig={outputConfig}
+	/>
+
 	<div class="form-section">
 		<h3 class="section-title mono">INFERENCE PARAMS</h3>
 

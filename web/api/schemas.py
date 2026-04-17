@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 # --- Clips ---
@@ -77,6 +79,7 @@ class PipelineJobRequest(BaseModel):
     alpha_method: str = "gvm"  # "gvm" or "videomama"
     params: InferenceParamsSchema = InferenceParamsSchema()
     output_config: OutputConfigSchema = OutputConfigSchema()
+    preset_id: str | None = None
 
 
 class InferenceJobRequest(BaseModel):
@@ -84,6 +87,7 @@ class InferenceJobRequest(BaseModel):
     params: InferenceParamsSchema = InferenceParamsSchema()
     output_config: OutputConfigSchema = OutputConfigSchema()
     frame_range: tuple[int, int] | None = None
+    preset_id: str | None = None
 
 
 class GVMJobRequest(BaseModel):
@@ -147,3 +151,42 @@ class VRAMResponse(BaseModel):
 class WSMessage(BaseModel):
     type: str
     data: dict
+
+
+# --- Presets ---
+
+_MAX_PRESET_NAME = 100
+_MAX_PRESET_DESC = 500
+
+
+class PresetCreateRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=_MAX_PRESET_NAME)
+    description: str = Field("", max_length=_MAX_PRESET_DESC)
+    params: InferenceParamsSchema = InferenceParamsSchema()
+    output_config: OutputConfigSchema = OutputConfigSchema()
+    is_default: bool = False
+
+
+class PresetUpdateRequest(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=_MAX_PRESET_NAME)
+    description: str | None = Field(None, max_length=_MAX_PRESET_DESC)
+    params: InferenceParamsSchema | None = None
+    output_config: OutputConfigSchema | None = None
+    is_default: bool | None = None
+
+
+class PresetSchema(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    scope: Literal["global", "org"]
+    org_id: str | None = None
+    params: InferenceParamsSchema = InferenceParamsSchema()
+    output_config: OutputConfigSchema = OutputConfigSchema()
+    is_default: bool = False
+    created_by: str | None = None
+    created_at: float = 0
+
+
+class PresetListResponse(BaseModel):
+    presets: list[PresetSchema] = []
