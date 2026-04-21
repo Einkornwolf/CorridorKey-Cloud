@@ -337,14 +337,22 @@ def _chain_next_pipeline_step(job: GPUJob, queue: JobState, clips_dir: str, serv
             ]
         else:
             from .routes.jobs import _build_gvm_jobs
+            from .tier_limits import get_user_concurrent_limit
 
-            next_jobs = _build_gvm_jobs(job.clip_name, frame_count, extra_params=params, org_id=job.org_id)
+            tier_cap = get_user_concurrent_limit(user_id=job.submitted_by) if job.submitted_by else 0
+            next_jobs = _build_gvm_jobs(
+                job.clip_name, frame_count, extra_params=params, org_id=job.org_id, tier_concurrent_limit=tier_cap
+            )
     elif state == "READY" and job.job_type != JobType.INFERENCE:
         # Alpha done → need inference (shard across available GPUs)
         # Guard: don't chain inference→inference (clip should be COMPLETE after inference)
         from .routes.jobs import _build_inference_shards
+        from .tier_limits import get_user_concurrent_limit
 
-        next_jobs = _build_inference_shards(job.clip_name, frame_count, params, org_id=job.org_id)
+        tier_cap = get_user_concurrent_limit(user_id=job.submitted_by) if job.submitted_by else 0
+        next_jobs = _build_inference_shards(
+            job.clip_name, frame_count, params, org_id=job.org_id, tier_concurrent_limit=tier_cap
+        )
 
     # Check credit balance before chaining (the initial pipeline submission
     # estimated the full cost, but the estimate may have been wrong)
