@@ -412,7 +412,40 @@ export const api = {
 		getHealth: (nodeId: string) =>
 			request<{ history: { ts: number; cpu: number; ram_used: number; ram_total: number }[] }>('GET', `/api/farm/${encodeURIComponent(nodeId)}/health`),
 		setVisibility: (nodeId: string, visibility: 'private' | 'shared') =>
-			request<unknown>('PUT', `/api/farm/${encodeURIComponent(nodeId)}/visibility`, { visibility })
+			request<unknown>('PUT', `/api/farm/${encodeURIComponent(nodeId)}/visibility`, { visibility }),
+		getMetrics: (nodeId: string) =>
+			request<{
+				node_id: string;
+				reputation: {
+					score: number;
+					breakdown: {
+						success: { value: number; weight: number; points: number };
+						speed: { value: number; weight: number; points: number };
+						uptime: { value: number; weight: number; points: number };
+						transfer: { download_mbps: number; upload_mbps: number; combined_mbps: number; weight: number; points: number };
+						security_penalty: { warnings: number; points: number };
+					};
+					stats: {
+						completed_jobs: number;
+						failed_jobs: number;
+						total_frames: number;
+						total_processing_seconds: number;
+						total_heartbeats: number;
+						missed_heartbeats: number;
+					};
+				};
+				jobs: {
+					job_id: string;
+					job_type: string;
+					status: string;
+					total_frames: number;
+					duration_seconds: number;
+					fps: number;
+					started_at: number;
+					completed_at: number;
+					clip_name?: string;
+				}[];
+			}>('GET', `/api/farm/${encodeURIComponent(nodeId)}/metrics`)
 	},
 	system2: {
 		localGpus: () =>
@@ -440,5 +473,8 @@ export const api = {
 		update: (id: string, data: { name?: string; description?: string; params?: InferenceParams; output_config?: OutputConfig; is_default?: boolean }) =>
 			request<Preset>('PATCH', `/api/presets/${encodeURIComponent(id)}`, data),
 		delete: (id: string) => request<void>('DELETE', `/api/presets/${encodeURIComponent(id)}`, undefined, true)
+			request<unknown>('POST', `/api/system/claim-delay?seconds=${seconds}`),
+		getScheduleTz: () =>
+			request<{ timezone: string; abbreviation: string; server_time: string }>('GET', '/api/system/schedule-tz')
 	}
 };

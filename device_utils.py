@@ -121,6 +121,96 @@ class GPUInfo:
     name: str
     vram_total_gb: float
     vram_free_gb: float
+    # CUDA compute capability as "major.minor" (e.g. "6.1", "7.5", "8.6").
+    # Empty string for AMD/unknown. Used to gate out GPUs that the shipped
+    # torch build can't run on (see check_gpu_torch_compat).
+    compute_capability: str = ""
+
+
+# Fallback minimum CUDA compute capability when torch can't tell us what it
+# actually supports. torch 2.8.0 cu128 wheels typically carry sm_70+; older
+# Pascal/Maxwell archs depend on how the wheel was built. When available we
+# prefer torch.cuda.get_arch_list() over this constant (see _torch_arch_list).
+MIN_CUDA_COMPUTE_CAPABILITY = (7, 0)
+
+
+def _torch_arch_list() -> list[tuple[int, int]] | None:
+    """Return the compute capabilities this torch build actually supports.
+
+    Queries torch.cuda.get_arch_list() so the node can accept whatever torch
+    says it can run, rather than relying on a hardcoded floor that may be
+    wrong for Pascal-enabled wheels. Returns None on any failure.
+    """
+    try:
+        arches = torch.cuda.get_arch_list() or []
+    except Exception:
+        return None
+    out: list[tuple[int, int]] = []
+    for a in arches:
+        # Strings look like 'sm_61', 'sm_75', 'compute_80', etc.
+        digits = "".join(c for c in a if c.isdigit())
+        if len(digits) >= 2:
+            try:
+                out.append((int(digits[:-1]), int(digits[-1])))
+            except ValueError:
+                continue
+    return out or None
+
+
+def _parse_cc(cc: str) -> tuple[int, int] | None:
+    """Parse a compute capability string like '6.1' into (6, 1)."""
+    try:
+        major, minor = cc.split(".", 1)
+        return int(major), int(minor)
+    except (ValueError, AttributeError):
+        return None
+
+
+def check_gpu_torch_compat(gpu: GPUInfo) -> tuple[bool, str]:
+    """Check whether a GPU meets the minimum compute capability for our torch build.
+
+    Prefers torch.cuda.get_arch_list() as the source of truth — some wheels
+    ship Pascal support (sm_61) and some don't, and a hardcoded floor would
+    falsely reject GPUs that actually work. Falls back to
+    MIN_CUDA_COMPUTE_CAPABILITY only when torch can't be queried.
+
+    AMD GPUs (empty compute_capability) are assumed compatible and not gated
+    here; they have their own compatibility handling in the ROCm path.
+
+    Returns (compatible, reason). reason is an empty string when compatible.
+    """
+    if not gpu.compute_capability:
+        return True, ""
+    parsed = _parse_cc(gpu.compute_capability)
+    if parsed is None:
+        return True, ""  # can't parse, don't block
+
+    supported = _torch_arch_list()
+    if supported:
+        # Accept any CC >= min supported arch. This is what torch uses too —
+        # sm_61 can run kernels built for sm_60 but not sm_70.
+        min_supported = min(supported)
+        if parsed < min_supported:
+            sup_str = ", ".join(f"sm_{a}{b}" for a, b in sorted(supported))
+            return False, (
+                f"GPU {gpu.index} '{gpu.name}' is sm_{parsed[0]}{parsed[1]} "
+                f"(compute {gpu.compute_capability}); this torch build only "
+                f"supports [{sup_str}]. Jobs would fail with 'no kernel image "
+                f"is available for execution on the device'."
+            )
+        return True, ""
+
+    # Fallback: static minimum
+    if parsed < MIN_CUDA_COMPUTE_CAPABILITY:
+        min_str = f"{MIN_CUDA_COMPUTE_CAPABILITY[0]}.{MIN_CUDA_COMPUTE_CAPABILITY[1]}"
+        return False, (
+            f"GPU {gpu.index} '{gpu.name}' has CUDA compute capability "
+            f"{gpu.compute_capability} (sm_{parsed[0]}{parsed[1]}), "
+            f"below the minimum {min_str} (sm_{MIN_CUDA_COMPUTE_CAPABILITY[0]}"
+            f"{MIN_CUDA_COMPUTE_CAPABILITY[1]}) required by this node build. "
+            f"Jobs would fail with 'no kernel image is available for execution on the device'."
+        )
+    return True, ""
 
 
 def _enumerate_nvidia() -> list[GPUInfo] | None:
@@ -129,7 +219,7 @@ def _enumerate_nvidia() -> list[GPUInfo] | None:
         result = subprocess_run(
             [
                 "nvidia-smi",
-                "--query-gpu=index,name,memory.total,memory.free",
+                "--query-gpu=index,name,memory.total,memory.free,compute_cap",
                 "--format=csv,nounits,noheader",
             ],
             capture_output=True,
@@ -148,6 +238,7 @@ def _enumerate_nvidia() -> list[GPUInfo] | None:
                         name=parts[1],
                         vram_total_gb=float(parts[2]) / 1024,
                         vram_free_gb=float(parts[3]) / 1024,
+                        compute_capability=parts[4] if len(parts) >= 5 else "",
                     )
                 )
         return gpus
@@ -327,12 +418,14 @@ def _enumerate_torch() -> list[GPUInfo] | None:
             for i in range(torch.cuda.device_count()):
                 props = torch.cuda.get_device_properties(i)
                 total = props.total_memory / (1024**3)
+                cc = f"{props.major}.{props.minor}" if hasattr(props, "major") and hasattr(props, "minor") else ""
                 gpus.append(
                     GPUInfo(
                         index=i,
                         name=props.name,
                         vram_total_gb=total,
                         vram_free_gb=total,  # can't query free without setting device
+                        compute_capability=cc,
                     )
                 )
             if gpus:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -27,6 +28,10 @@ from ..schemas import (
 from ..tier_guard import require_admin, require_member
 
 logger = logging.getLogger(__name__)
+
+# Max shards created by auto-sharding (when num_shards=0 / pipeline chaining).
+# Explicit num_shards requests from users are still capped at 64 by the Pydantic field.
+MAX_AUTO_SHARDS = int(os.environ.get("CK_MAX_AUTO_SHARDS", "10"))
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"], dependencies=[Depends(require_member)])
 
@@ -318,8 +323,19 @@ def submit_sharded_inference(req: ShardedInferenceRequest, request: Request):
         if frame_count == 0:
             continue
 
-        # Determine shard count
-        num_shards = req.num_shards if req.num_shards > 0 else available_gpus
+        # Determine shard count. On auto (num_shards=0), cap by MAX_AUTO_SHARDS
+        # and the submitter's tier concurrent-job cap so we don't build shards
+        # that would get rejected at submit time (CRKY-191).
+        if req.num_shards > 0:
+            num_shards = req.num_shards
+        else:
+            from ..tier_limits import get_user_concurrent_limit
+
+            tier_cap = get_user_concurrent_limit(request=request)
+            caps = [available_gpus, MAX_AUTO_SHARDS]
+            if tier_cap > 0:
+                caps.append(tier_cap)
+            num_shards = min(caps)
         # Don't create shards smaller than min_shard_size
         max_shards = max(1, frame_count // req.min_shard_size)
         num_shards = min(num_shards, max_shards)
@@ -545,18 +561,28 @@ def _get_available_gpus(job_type: str, org_id: str | None = None) -> list[str]:
 
 
 def _build_gvm_jobs(
-    clip_name: str, frame_count: int, extra_params: dict | None = None, org_id: str | None = None
+    clip_name: str,
+    frame_count: int,
+    extra_params: dict | None = None,
+    org_id: str | None = None,
+    tier_concurrent_limit: int = 0,
 ) -> list[GPUJob]:
     """Build GVM jobs for a clip, auto-sharding across available GPUs.
 
     Distributes frames proportionally to GPU speed (from job history).
     Falls back to even distribution when no history is available.
+
+    `tier_concurrent_limit` caps auto-sharding so we never produce more shards
+    than the submitter's tier allows (CRKY-191). 0 means "no tier cap".
     """
     gpu_names = _get_available_gpus("gvm_alpha", org_id=org_id)
     min_shard = 20
     params = dict(extra_params) if extra_params else {}
 
-    num_shards = min(len(gpu_names), frame_count // min_shard) if gpu_names else 0
+    caps = [len(gpu_names), frame_count // min_shard, MAX_AUTO_SHARDS]
+    if tier_concurrent_limit > 0:
+        caps.append(tier_concurrent_limit)
+    num_shards = min(caps) if gpu_names else 0
     if num_shards > 1:
         speed_map = _gpu_speed_weights("gvm_alpha")
         sizes = _weighted_shard_sizes(frame_count, gpu_names[:num_shards], speed_map)
@@ -584,18 +610,28 @@ def _build_gvm_jobs(
 
 
 def _build_inference_shards(
-    clip_name: str, frame_count: int, extra_params: dict | None = None, org_id: str | None = None
+    clip_name: str,
+    frame_count: int,
+    extra_params: dict | None = None,
+    org_id: str | None = None,
+    tier_concurrent_limit: int = 0,
 ) -> list[GPUJob]:
     """Build inference jobs for a clip, auto-sharding across available GPUs.
 
     Distributes frames proportionally to GPU speed (from job history).
     Uses inclusive frame ranges (run_inference treats end as inclusive).
+
+    `tier_concurrent_limit` caps auto-sharding so we never produce more shards
+    than the submitter's tier allows (CRKY-191). 0 means "no tier cap".
     """
     gpu_names = _get_available_gpus("inference", org_id=org_id)
     min_shard = 50
     params = dict(extra_params) if extra_params else {}
 
-    num_shards = min(len(gpu_names), frame_count // min_shard) if gpu_names else 0
+    caps = [len(gpu_names), frame_count // min_shard, MAX_AUTO_SHARDS]
+    if tier_concurrent_limit > 0:
+        caps.append(tier_concurrent_limit)
+    num_shards = min(caps) if gpu_names else 0
     if num_shards > 1:
         speed_map = _gpu_speed_weights("inference")
         sizes = _weighted_shard_sizes(frame_count, gpu_names[:num_shards], speed_map)
@@ -642,7 +678,10 @@ def submit_gvm(req: GVMJobRequest, request: Request):
         frame_count = clip.input_asset.frame_count if clip.input_asset else 0
         est = estimate_gpu_seconds("gvm_alpha", frame_count)
         gvm_org = request.headers.get("X-Org-Id", "").strip() or None
-        for job in _build_gvm_jobs(clip_name, frame_count, org_id=gvm_org):
+        from ..tier_limits import get_user_concurrent_limit
+
+        tier_cap = get_user_concurrent_limit(request=request)
+        for job in _build_gvm_jobs(clip_name, frame_count, org_id=gvm_org, tier_concurrent_limit=tier_cap):
             _stamp_job(job, request, estimated_seconds=est, frame_count=frame_count)
             if queue.submit(job):
                 submitted.append(_job_to_schema(job))
@@ -733,7 +772,16 @@ def submit_pipeline(req: PipelineJobRequest, request: Request):
             else:
                 frame_count = clip.input_asset.frame_count if clip.input_asset else 0
                 pipe_org = request.headers.get("X-Org-Id", "").strip() or None
-                jobs = _build_gvm_jobs(clip_name, frame_count, extra_params=pipeline_params, org_id=pipe_org)
+                from ..tier_limits import get_user_concurrent_limit
+
+                tier_cap = get_user_concurrent_limit(request=request)
+                jobs = _build_gvm_jobs(
+                    clip_name,
+                    frame_count,
+                    extra_params=pipeline_params,
+                    org_id=pipe_org,
+                    tier_concurrent_limit=tier_cap,
+                )
         elif state == "MASKED":
             jobs = [
                 GPUJob(

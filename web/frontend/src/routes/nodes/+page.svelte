@@ -27,6 +27,9 @@
 	let viewingHealth = $state<string | null>(null);
 	let healthData = $state<{ ts: number; cpu: number; ram_used: number; ram_total: number }[]>([]);
 	let healthCanvas: HTMLCanvasElement | undefined = $state();
+	let viewingMetrics = $state<string | null>(null);
+	let metricsData = $state<Awaited<ReturnType<typeof api.nodes.getMetrics>> | null>(null);
+	let scheduleTz = $state<{ timezone: string; abbreviation: string; server_time: string } | null>(null);
 
 	const ALL_JOB_TYPES = [
 		{ value: 'inference', label: 'Inference' },
@@ -39,6 +42,7 @@
 	onMount(() => {
 		refreshNodes();
 		_intervals.push(setInterval(refreshNodes, 5000));
+		api.system2.getScheduleTz().then(tz => scheduleTz = tz).catch(() => {});
 		if (isAdmin) {
 			api.system2.localGpus().then(g => localGpus = g).catch(() => {});
 			api.system2.localCpu().then(c => localCpu = c).catch(() => {});
@@ -181,6 +185,25 @@
 		} catch { logLines = ['Failed to fetch logs']; viewingLogs = nodeId; }
 	}
 
+	async function toggleMetrics(nodeId: string) {
+		if (viewingMetrics === nodeId) { viewingMetrics = null; return; }
+		try {
+			metricsData = await api.nodes.getMetrics(nodeId);
+			viewingMetrics = nodeId;
+		} catch { metricsData = null; viewingMetrics = nodeId; }
+	}
+
+	function formatDuration(s: number): string {
+		if (s < 60) return `${s.toFixed(0)}s`;
+		if (s < 3600) return `${(s / 60).toFixed(1)}m`;
+		return `${(s / 3600).toFixed(1)}h`;
+	}
+
+	function formatJobType(t: string): string {
+		const labels: Record<string, string> = { inference: 'Inference', gvm_alpha: 'GVM Alpha', videomama_alpha: 'VideoMaMa' };
+		return labels[t] ?? t;
+	}
+
 	async function toggleVisibility(node: NodeInfo) {
 		const next = node.visibility === 'shared' ? 'private' : 'shared';
 		try {
@@ -298,6 +321,7 @@
 								<button class="btn-sm mono" onclick={() => openScheduleEditor(node)}>SCHEDULE</button>
 								<button class="btn-sm mono" onclick={() => openTypesEditor(node)}>TYPES</button>
 								<button class="btn-sm mono" onclick={() => toggleHealth(node.node_id)}>HEALTH</button>
+								<button class="btn-sm mono" onclick={() => toggleMetrics(node.node_id)}>METRICS</button>
 								<button class="btn-sm mono" onclick={() => toggleLogs(node.node_id)}>LOGS</button>
 								{#if node.can_manage}
 									<button class="btn-sm btn-danger-sm mono" onclick={() => removeNode(node.node_id)}>REMOVE</button>
@@ -322,10 +346,10 @@
 									<div class="score-breakdown">
 										<span class="info-label">Reputation</span>
 										<div class="score-bars">
-																						<div class="score-bar-row">
+											<div class="score-bar-row">
 												<span class="score-bar-label mono">Success</span>
-												<div class="score-bar"><div class="score-bar-fill success" style="width: {(node.reputation.breakdown?.success?.points ?? 0) / 50 * 100}%"></div></div>
-												<span class="score-bar-value mono">{node.reputation.breakdown?.success?.points ?? 0}/50</span>
+												<div class="score-bar"><div class="score-bar-fill success" style="width: {(node.reputation.breakdown?.success?.points ?? 0) / 45 * 100}%"></div></div>
+												<span class="score-bar-value mono">{node.reputation.breakdown?.success?.points ?? 0}/45</span>
 											</div>
 											<div class="score-bar-row">
 												<span class="score-bar-label mono">Speed</span>
@@ -334,9 +358,16 @@
 											</div>
 											<div class="score-bar-row">
 												<span class="score-bar-label mono">Uptime</span>
-												<div class="score-bar"><div class="score-bar-fill uptime" style="width: {(node.reputation.breakdown?.uptime?.points ?? 0) / 30 * 100}%"></div></div>
-												<span class="score-bar-value mono">{node.reputation.breakdown?.uptime?.points ?? 0}/30</span>
+												<div class="score-bar"><div class="score-bar-fill uptime" style="width: {(node.reputation.breakdown?.uptime?.points ?? 0) / 25 * 100}%"></div></div>
+												<span class="score-bar-value mono">{node.reputation.breakdown?.uptime?.points ?? 0}/25</span>
 											</div>
+											{#if node.reputation.breakdown?.transfer}
+												<div class="score-bar-row">
+													<span class="score-bar-label mono">Transfer</span>
+													<div class="score-bar"><div class="score-bar-fill transfer" style="width: {(node.reputation.breakdown.transfer.points ?? 0) / 10 * 100}%"></div></div>
+													<span class="score-bar-value mono">{node.reputation.breakdown.transfer.points ?? 0}/10</span>
+												</div>
+											{/if}
 											{#if node.reputation.breakdown?.security_penalty?.points}
 												<div class="score-bar-row">
 													<span class="score-bar-label mono">Penalty</span>
@@ -351,7 +382,14 @@
 							<!-- Schedule editor -->
 							{#if editingSchedule === node.node_id}
 								<div class="editor-panel">
-									<span class="editor-title mono">SCHEDULE</span>
+									<span class="editor-title mono">
+										SCHEDULE
+										{#if scheduleTz}
+											<span class="editor-title-tz mono">
+												({scheduleTz.abbreviation || scheduleTz.timezone} · server now {scheduleTz.server_time})
+											</span>
+										{/if}
+									</span>
 									<label class="toggle-row"><input type="checkbox" bind:checked={scheduleEnabled} class="toggle" /> Enabled</label>
 									<div class="editor-row">
 										<input type="time" bind:value={scheduleStart} class="input-sm mono" />
@@ -396,6 +434,65 @@
 										<canvas bind:this={healthCanvas} class="health-canvas"></canvas>
 									{:else}
 										<span class="mono empty-hint">No health data yet</span>
+									{/if}
+								</div>
+							{/if}
+
+							<!-- Metrics -->
+							{#if viewingMetrics === node.node_id}
+								<div class="metrics-panel">
+									{#if metricsData}
+										{@const stats = metricsData.reputation.stats}
+										{@const bd = metricsData.reputation.breakdown}
+										<div class="metrics-stats">
+											<div class="metric-card">
+												<span class="metric-label mono">JOBS</span>
+												<span class="metric-value mono">{stats.completed_jobs}</span>
+												<span class="metric-sub mono">{stats.failed_jobs} failed</span>
+											</div>
+											<div class="metric-card">
+												<span class="metric-label mono">FRAMES</span>
+												<span class="metric-value mono">{stats.total_frames.toLocaleString()}</span>
+												<span class="metric-sub mono">{formatDuration(stats.total_processing_seconds)} GPU time</span>
+											</div>
+											<div class="metric-card">
+												<span class="metric-label mono">AVG FPS</span>
+												<span class="metric-value mono">{bd.speed.value.toFixed(2)}</span>
+											</div>
+											<div class="metric-card">
+												<span class="metric-label mono">TRANSFER</span>
+												<span class="metric-value mono">{bd.transfer.combined_mbps.toFixed(1)}</span>
+												<span class="metric-sub mono">DL {bd.transfer.download_mbps.toFixed(1)} / UL {bd.transfer.upload_mbps.toFixed(1)} MB/s</span>
+											</div>
+										</div>
+
+										{#if metricsData.jobs.length > 0}
+											<div class="metrics-history">
+												<span class="editor-title mono">RECENT JOBS</span>
+												<div class="history-table">
+													<div class="history-header mono">
+														<span class="h-type">Type</span>
+														<span class="h-status">Status</span>
+														<span class="h-frames">Frames</span>
+														<span class="h-fps">FPS</span>
+														<span class="h-dur">Duration</span>
+													</div>
+													{#each metricsData.jobs as job}
+														<div class="history-row mono">
+															<span class="h-type">{formatJobType(job.job_type)}</span>
+															<span class="h-status" class:completed={job.status === 'completed'} class:failed={job.status === 'failed'} class:cancelled={job.status === 'cancelled'}>{job.status}</span>
+															<span class="h-frames">{job.total_frames}</span>
+															<span class="h-fps">{job.fps > 0 ? job.fps.toFixed(2) : '-'}</span>
+															<span class="h-dur">{formatDuration(job.duration_seconds)}</span>
+														</div>
+													{/each}
+												</div>
+											</div>
+										{:else}
+											<span class="mono empty-hint">No job history yet</span>
+										{/if}
+									{:else}
+										<span class="mono empty-hint">Failed to load metrics</span>
 									{/if}
 								</div>
 							{/if}
@@ -625,6 +722,7 @@
 		display: flex; flex-direction: column; gap: var(--sp-2);
 	}
 	.editor-title { font-size: 9px; letter-spacing: 0.1em; color: var(--text-tertiary); font-weight: 600; }
+	.editor-title-tz { font-size: 9px; letter-spacing: 0.04em; color: var(--text-tertiary); font-weight: 400; text-transform: none; margin-left: 4px; }
 	.editor-row { display: flex; align-items: center; gap: var(--sp-2); font-size: 12px; color: var(--text-secondary); }
 	.editor-actions { display: flex; gap: var(--sp-1); }
 	.input-sm {
@@ -648,6 +746,32 @@
 		padding: var(--sp-2); border-radius: var(--radius-sm); max-height: 200px;
 		overflow: auto; white-space: pre-wrap; word-break: break-all;
 	}
+
+	/* Score bar: transfer color */
+	.score-bar-fill.transfer { background: #e040fb; }
+
+	/* Metrics panel */
+	.metrics-panel { display: flex; flex-direction: column; gap: var(--sp-3); }
+	.metrics-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-2); }
+	.metric-card {
+		background: var(--surface-3); border-radius: var(--radius-sm); padding: var(--sp-2);
+		display: flex; flex-direction: column; gap: 2px;
+	}
+	.metric-label { font-size: 8px; letter-spacing: 0.1em; color: var(--text-tertiary); }
+	.metric-value { font-size: 18px; font-weight: 700; color: var(--accent); }
+	.metric-sub { font-size: 9px; color: var(--text-tertiary); }
+
+	.metrics-history { display: flex; flex-direction: column; gap: var(--sp-2); }
+	.history-table { display: flex; flex-direction: column; }
+	.history-header, .history-row {
+		display: grid; grid-template-columns: 2fr 1.2fr 1fr 1fr 1fr; gap: var(--sp-2);
+		padding: 3px 0; font-size: 10px; align-items: center;
+	}
+	.history-header { color: var(--text-tertiary); border-bottom: 1px solid var(--border); font-weight: 600; }
+	.history-row { color: var(--text-secondary); border-bottom: 1px solid var(--surface-3); }
+	.history-row .completed { color: var(--state-complete); }
+	.history-row .failed { color: var(--state-error); }
+	.history-row .cancelled { color: var(--text-tertiary); }
 
 	.empty-state {
 		display: flex; flex-direction: column; align-items: center; justify-content: center;

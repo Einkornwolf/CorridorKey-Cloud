@@ -220,13 +220,17 @@ class RedisNodeState:
         pipe = r.pipeline()
         pipe.srem("ck:nodes:dismissed", info.node_id)
 
-        # On re-register: merge new fields into existing node, preserve UI settings
+        # On re-register: merge new fields into existing node, preserve UI settings.
+        # CRKY-197: visibility is UI-set and must be preserved the same way
+        # paused/schedule/accepted_types are, or a docker container restart will
+        # reset shared nodes back to private.
         existing_json = r.get(_node_key(info.node_id))
         if existing_json:
             existing = NodeInfo.from_dict(json.loads(existing_json))
             info.paused = existing.paused
             info.schedule = existing.schedule
             info.accepted_types = existing.accepted_types
+            info.visibility = existing.visibility
             info.health_history = existing.health_history
             info.recent_logs = existing.recent_logs
             if not info.org_id:
@@ -609,6 +613,18 @@ class RedisJobState:
 
     def find_job_by_id(self, job_id: str) -> GPUJob | None:
         return _load_job(get_redis().get(_job_key(job_id)))
+
+    def update_job(self, job: GPUJob) -> None:
+        """Write back a mutated job. Needed because find_job_by_id returns a
+        deserialized copy on Redis; without this, mutations from route handlers
+        (progress reports, cancellation flags) don't round-trip and are lost
+        (CRKY-189: progress updates landed on an ephemeral copy and
+        total_frames stayed 0 through to completion)."""
+        r = get_redis()
+        # Only persist if the job key still exists — avoids resurrecting
+        # a deleted job via a stale reference.
+        if r.exists(_job_key(job.id)):
+            r.set(_job_key(job.id), _save_job(job))
 
     # --- Shard operations ---
 

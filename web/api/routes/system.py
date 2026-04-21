@@ -193,6 +193,25 @@ def set_claim_delay_setting(seconds: float):
     return {"status": "ok", "seconds": seconds}
 
 
+@router.get("/schedule-tz", summary="Get the timezone used for node schedules")
+def get_schedule_tz():
+    """Return the IANA timezone name that HH:MM schedule values are interpreted in.
+
+    The frontend shows this next to the schedule inputs so users know what
+    timezone they're specifying (CRKY-198).
+    """
+    from datetime import datetime
+
+    from ..nodes import SCHEDULE_TIMEZONE, get_schedule_timezone_name
+
+    now = datetime.now(SCHEDULE_TIMEZONE)
+    return {
+        "timezone": get_schedule_timezone_name(),
+        "abbreviation": now.tzname() or "",
+        "server_time": now.strftime("%H:%M"),
+    }
+
+
 @router.post("/unload", dependencies=[Depends(require_admin)])
 def unload_engines():
     service = get_service()

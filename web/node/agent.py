@@ -17,7 +17,7 @@ from pathlib import Path
 
 import httpx
 
-from device_utils import check_gpu_available, enumerate_gpus, get_cpu_stats
+from device_utils import check_gpu_available, check_gpu_torch_compat, enumerate_gpus, get_cpu_stats
 
 from . import config
 from .file_transfer import FileTransfer
@@ -325,7 +325,14 @@ class NodeAgent:
             pass
         return False
 
-    def _report_result(self, job_id: str, status: str, error: str | None = None) -> None:
+    def _report_result(
+        self,
+        job_id: str,
+        status: str,
+        error: str | None = None,
+        download_mbps: float = 0.0,
+        upload_mbps: float = 0.0,
+    ) -> None:
         if self.tray:
             if status == "completed":
                 self.tray.job_completed(job_id, 0)
@@ -334,7 +341,11 @@ class NodeAgent:
             else:
                 self.tray.set_status("idle")
         try:
-            payload = {"job_id": job_id, "status": status, "error_message": error}
+            payload: dict = {"job_id": job_id, "status": status, "error_message": error}
+            if download_mbps > 0:
+                payload["download_mbps"] = round(download_mbps, 2)
+            if upload_mbps > 0:
+                payload["upload_mbps"] = round(upload_mbps, 2)
             self._api("post", f"/api/nodes/{self.node_id}/job-result", json=payload)
         except Exception as e:
             logger.error(f"Failed to report result for {job_id}: {e}")
@@ -355,8 +366,50 @@ class NodeAgent:
             with self._busy_lock:
                 self._busy_gpus.discard(gpu_index)
 
+    def _verify_output_produced(self, job_type: str, clip_dir: str) -> None:
+        """Raise if the expected output directory is empty after a run.
+
+        Catches the "finished successfully but produced no frames" silent-
+        failure case (CRKY-189) where torch ops skip on unsupported hardware,
+        a lib crashes after emitting a success, or a shard ends up with zero
+        input frames. Without this guard those jobs ride the normal completion
+        path and show up as "completed 0 frames" in the user's UI.
+        """
+        if job_type in ("gvm_alpha", "videomama_alpha"):
+            out_dir = os.path.join(clip_dir, "AlphaHint")
+        elif job_type == "inference":
+            # Inference writes at least one of FG/Matte/Comp/Processed. Consider
+            # the run successful if any of these has content.
+            candidates = [
+                os.path.join(clip_dir, "Output", sub) for sub in ("Processed", "Matte", "FG", "Comp")
+            ]
+            for d in candidates:
+                if os.path.isdir(d) and any(os.path.isfile(os.path.join(d, f)) for f in os.listdir(d)):
+                    return
+            raise RuntimeError(
+                f"Job finished but produced no output frames in any of "
+                f"Output/{{FG,Matte,Comp,Processed}} under '{clip_dir}'. "
+                "Likely a silent failure in the inference path."
+            )
+        else:
+            return  # unknown job_type, skip the check
+        if not os.path.isdir(out_dir):
+            raise RuntimeError(
+                f"Job finished but output directory '{out_dir}' was never created. "
+                "Likely a silent failure before any frame was written."
+            )
+        has_files = any(os.path.isfile(os.path.join(out_dir, f)) for f in os.listdir(out_dir))
+        if not has_files:
+            raise RuntimeError(
+                f"Job finished but output directory '{out_dir}' is empty. "
+                "Likely a silent failure (unsupported GPU op, crashed library, "
+                "or empty input shard)."
+            )
+
     def _process_job(self, job_data: dict, gpu_index: int = 0) -> None:
-        """Process a job — run inference using a GPU subprocess or in-process."""
+        """Process a job -- run inference using a GPU subprocess or in-process."""
+        from .file_transfer import TransferStats
+
         job_id = job_data["id"]
         clip_name = job_data["clip_name"]
         use_shared = job_data.get("use_shared_storage", False)
@@ -366,11 +419,16 @@ class NodeAgent:
         # Set job context for org-scoped file resolution (survives server restarts)
         self.file_transfer.set_job_id(job_id)
 
+        dl_stats = TransferStats()
+        ul_stats = TransferStats()
+
         if use_shared:
             clips_dir = str(Path(job_data.get("shared_clip_root", "")).parent)
         else:
-            clips_dir = self._download_job_files(job_data)
-            # Downloaded files ARE the frame range — strip it so inference
+            clips_dir, dl_stats = self._download_job_files(job_data)
+            if dl_stats.mbps > 0:
+                logger.info(f"Download complete: {dl_stats.mbps:.1f} MB/s")
+            # Downloaded files ARE the frame range -- strip it so inference
             # processes all local files instead of re-indexing into the subset
             if job_data.get("params", {}).get("frame_range"):
                 job_data = {**job_data, "params": {**job_data["params"], "frame_range": None}}
@@ -380,12 +438,18 @@ class NodeAgent:
         else:
             self._run_subprocess_gpu(job_data, clips_dir, gpu_index)
 
+        # Verify output was actually produced before we report completion.
+        # Catches silent failures (e.g. torch op skipped on unsupported GPU,
+        # libs crash after emitting success, empty input shard).
+        clip_output_dir = os.path.join(clips_dir, clip_name)
+        self._verify_output_produced(job_data.get("job_type", ""), clip_output_dir)
+
         # Check cancellation before uploading (avoid wasting bandwidth)
         if self._is_cancelled(job_id):
-            logger.info(f"Job {job_id} cancelled before upload — skipping result upload")
+            logger.info(f"Job {job_id} cancelled before upload -- skipping result upload")
             if not use_shared and clips_dir:
                 self._cleanup_temp(clips_dir)
-            self._report_result(job_id, "cancelled")
+            self._report_result(job_id, "cancelled", download_mbps=dl_stats.mbps)
             return
 
         # Upload results BEFORE reporting completion
@@ -401,23 +465,27 @@ class NodeAgent:
                 ]
                 if enabled
             ] or None
-            self._upload_results(
+            ul_stats = self._upload_results(
                 clip_name,
                 clips_dir,
                 job_type=job_data.get("job_type", ""),
                 job_id=job_id,
                 enabled_outputs=enabled_outputs,
             )
+            if ul_stats.mbps > 0:
+                logger.info(f"Upload complete: {ul_stats.mbps:.1f} MB/s")
             self._cleanup_temp(clips_dir)
 
         # Only report completed after results are uploaded to the server
-        self._report_result(job_id, "completed")
+        self._report_result(job_id, "completed", download_mbps=dl_stats.mbps, upload_mbps=ul_stats.mbps)
 
-    def _download_job_files(self, job_data: dict) -> str:
-        """Download input files for a job. Returns the clips_dir path.
+    def _download_job_files(self, job_data: dict) -> tuple:
+        """Download input files for a job. Returns (clips_dir, TransferStats).
 
         Downloads multiple passes in parallel to reduce transfer time.
         """
+        from .file_transfer import TransferStats
+
         clip_name = job_data["clip_name"]
         job_type = job_data["job_type"]
         params = job_data.get("params", {})
@@ -447,30 +515,38 @@ class NodeAgent:
         def cancel_fn() -> bool:
             return self._is_cancelled(job_id)
 
-        # Download passes in parallel
+        # Collect per-thread stats
+        thread_stats: list[TransferStats] = []
+        stats_lock = threading.Lock()
+
+        def _download_with_stats(pass_name: str, pass_fr: tuple[int, int] | None) -> None:
+            _count, stats = self.file_transfer.download_pass(
+                clip_name, pass_name, clip_dir, frame_range=pass_fr, is_cancelled=cancel_fn
+            )
+            with stats_lock:
+                thread_stats.append(stats)
+
+        # Download passes in parallel -- use wall-clock time for effective throughput
+        import time as _time
+
+        t0 = _time.monotonic()
         if len(passes) > 1:
             threads = []
             for pass_name, pass_fr in passes:
-                t = threading.Thread(
-                    target=self.file_transfer.download_pass,
-                    args=(clip_name, pass_name, clip_dir),
-                    kwargs={"frame_range": pass_fr, "is_cancelled": cancel_fn},
-                    daemon=True,
-                )
+                t = threading.Thread(target=_download_with_stats, args=(pass_name, pass_fr), daemon=True)
                 t.start()
                 threads.append(t)
             for t in threads:
                 t.join()
         elif passes:
-            self.file_transfer.download_pass(
-                clip_name,
-                passes[0][0],
-                clip_dir,
-                frame_range=passes[0][1],
-                is_cancelled=cancel_fn,
-            )
+            _download_with_stats(passes[0][0], passes[0][1])
+        wall_elapsed = _time.monotonic() - t0
 
-        return base_dir
+        # Combine: sum bytes across threads, use wall-clock for elapsed
+        total_bytes = sum(s.bytes_transferred for s in thread_stats)
+        combined = TransferStats(bytes_transferred=total_bytes, elapsed_seconds=wall_elapsed)
+
+        return base_dir, combined
 
     def _upload_results(
         self,
@@ -479,11 +555,13 @@ class NodeAgent:
         job_type: str = "",
         job_id: str = "",
         enabled_outputs: list[str] | None = None,
-    ) -> None:
+    ):
         """Upload output files back to the main machine. Checks cancellation between passes."""
+        from .file_transfer import TransferStats
+
         clip_dir = os.path.join(clips_dir, clip_name)
 
-        # Inference outputs — only upload enabled passes
+        # Inference outputs -- only upload enabled passes
         all_passes = {
             "fg": os.path.join(clip_dir, "Output", "FG"),
             "matte": os.path.join(clip_dir, "Output", "Matte"),
@@ -507,9 +585,17 @@ class NodeAgent:
 
         cancel_fn = (lambda: self._is_cancelled(job_id)) if job_id else None
 
+        total_bytes = 0
+        total_elapsed = 0.0
         for pass_name, dir_path in output_map.items():
             if os.path.isdir(dir_path):
-                self.file_transfer.upload_directory(clip_name, pass_name, dir_path, is_cancelled=cancel_fn)
+                _count, stats = self.file_transfer.upload_directory(
+                    clip_name, pass_name, dir_path, is_cancelled=cancel_fn
+                )
+                total_bytes += stats.bytes_transferred
+                total_elapsed += stats.elapsed_seconds
+
+        return TransferStats(bytes_transferred=total_bytes, elapsed_seconds=total_elapsed)
 
     def _cleanup_temp(self, clips_dir: str) -> None:
         """Remove temp directory after upload. Only deletes dirs we created."""
@@ -658,6 +744,35 @@ class NodeAgent:
             # clobber the failure with "completed 0 frames".
             raise RuntimeError(failure)
 
+    def _check_gpu_compatibility(self) -> bool:
+        """Verify selected GPUs meet the minimum compute capability for this torch build.
+
+        If any selected GPU is incompatible, log a clear error and return False.
+        The caller should exit instead of proceeding to register — otherwise the
+        node would accept jobs it can't run, silently fail them, and keep polling.
+        """
+        gpus = enumerate_gpus()
+        selected = [g for g in gpus if g.index in self._gpu_indices]
+        if not selected:
+            # No GPUs detected or selected — fall through to normal flow,
+            # torch / CPU-only mode will handle it.
+            return True
+        incompatible: list[str] = []
+        for g in selected:
+            ok, reason = check_gpu_torch_compat(g)
+            if not ok:
+                incompatible.append(reason)
+        if incompatible:
+            logger.error("Node GPU hardware is incompatible with this node build:")
+            for msg in incompatible:
+                logger.error(f"  - {msg}")
+            logger.error(
+                "See https://corridorkey.cloud/nodes/setup for supported hardware. "
+                "The agent will exit instead of accepting jobs it cannot run."
+            )
+            return False
+        return True
+
     def run(self) -> None:
         """Main loop — sync weights, register, then poll for jobs."""
         logger.info(f"CorridorKey Node Agent starting: {self.name} ({self.node_id})")
@@ -665,6 +780,14 @@ class NodeAgent:
         logger.info(f"GPUs: {self._gpu_indices}")
         if self.shared_storage:
             logger.info(f"Shared storage: {self.shared_storage}")
+
+        # Hard gate: refuse to run if selected GPUs are below the torch build's
+        # minimum compute capability. Without this the node accepts jobs and
+        # silently fails them on every kernel launch (CRKY-188).
+        if not self._check_gpu_compatibility():
+            if self.tray:
+                self.tray.set_status("error")
+            return
 
         # Sync weights from main server before doing anything else
         logger.info("Checking model weights...")

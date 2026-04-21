@@ -199,6 +199,8 @@ class JobResultRequest(BaseModel):
     job_id: str
     status: str  # "completed" or "failed"
     error_message: str | None = None
+    download_mbps: float | None = None
+    upload_mbps: float | None = None
 
 
 # --- Registration ---
@@ -304,6 +306,10 @@ def register_node(req: NodeRegisterRequest, request: Request):
     node = get_node_state().get_node(req.node_id)
     if node:
         _restore_node_config(node)
+        # Write the restored fields back — required on Redis-backed state where
+        # get_node() returns a deserialized copy and mutations don't round-trip
+        # automatically (CRKY-197). In-memory state is a no-op here.
+        get_node_state().update_node(req.node_id, node)
         manager.send_node_update(node.to_dict(), org_id=node.org_id)
     # Version comparison — use build_number for proper ordering
     from ..version import BUILD_NUMBER, MIN_NODE_BUILD, VERSION_STRING
@@ -588,8 +594,15 @@ def report_job_progress(node_id: str, job_id: str, current: int, total: int, req
             raise HTTPException(status_code=403, detail="Job is assigned to a different node")
         # Don't overwrite real frame counts with zeros (cancel check sends 0,0)
         if current > 0 or total > 0:
+            import time as _time
+
             job.current_frame = current
             job.total_frames = total
+            job.last_progress_at = _time.time()
+            # Persist the mutation — on Redis-backed state, find_job_by_id
+            # returns a deserialized copy, so mutating the local variable
+            # alone doesn't round-trip. No-op on in-memory state.
+            queue.update_job(job)
     oid = job.org_id if job else None
     cancelled = job.status.value == "cancelled" if job else False
     if current > 0 or total > 0:
@@ -645,7 +658,13 @@ def report_job_result(node_id: str, req: JobResultRequest, request: Request):
         if req.status == "completed":
             from ..node_reputation import record_job_completed
 
-            record_job_completed(node_id, job.total_frames, elapsed)
+            record_job_completed(
+                node_id,
+                job.total_frames,
+                elapsed,
+                download_mbps=req.download_mbps,
+                upload_mbps=req.upload_mbps,
+            )
     else:
         # Failed — no credit charge (system fault)
         error_detail = req.error_message or "Unknown error"

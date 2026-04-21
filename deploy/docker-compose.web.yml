@@ -34,6 +34,10 @@ services:
               count: all
               capabilities: [gpu]
     environment:
+      # Pin container time + node schedule TZ so schedules behave consistently
+      # regardless of host system timezone (CRKY-198).
+      - TZ=${TZ:-UTC}
+      - CK_SCHEDULE_TIMEZONE=${CK_SCHEDULE_TIMEZONE:-UTC}
       - OPENCV_IO_ENABLE_OPENEXR=1
       - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility,video

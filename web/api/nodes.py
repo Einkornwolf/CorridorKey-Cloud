@@ -3,12 +3,30 @@
 from __future__ import annotations
 
 import logging
+import os
 import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 logger = logging.getLogger(__name__)
+
+# Timezone used for node schedule HH:MM comparisons. CRKY-198: pinned so
+# that schedule semantics don't depend on the host's TZ environment.
+# Users see this TZ next to the schedule inputs in the frontend.
+_SCHEDULE_TZ_NAME = os.environ.get("CK_SCHEDULE_TIMEZONE", "UTC").strip() or "UTC"
+try:
+    SCHEDULE_TIMEZONE: ZoneInfo | None = ZoneInfo(_SCHEDULE_TZ_NAME)
+except ZoneInfoNotFoundError:
+    logger.warning("CK_SCHEDULE_TIMEZONE=%r is not a valid IANA tz, falling back to UTC", _SCHEDULE_TZ_NAME)
+    SCHEDULE_TIMEZONE = ZoneInfo("UTC")
+    _SCHEDULE_TZ_NAME = "UTC"
+
+
+def get_schedule_timezone_name() -> str:
+    """Return the IANA name of the schedule comparison timezone."""
+    return _SCHEDULE_TZ_NAME
 
 
 @dataclass
@@ -21,11 +39,16 @@ class NodeSchedule:
 
     @property
     def is_active_now(self) -> bool:
-        """Check if the current time is within the active window."""
+        """Check if the current time is within the active window.
+
+        Compared against SCHEDULE_TIMEZONE (configurable via CK_SCHEDULE_TIMEZONE,
+        default UTC) instead of host local time, so behavior is deterministic
+        regardless of where the container runs.
+        """
         if not self.enabled:
             return True  # no schedule = always active
 
-        now = datetime.now().strftime("%H:%M")
+        now = datetime.now(SCHEDULE_TIMEZONE).strftime("%H:%M")
         if self.start <= self.end:
             # Same-day window: e.g. 09:00-17:00
             return self.start <= now <= self.end
@@ -306,7 +329,9 @@ class NodeRegistry:
                 existing.build_number = info.build_number
                 existing.status = "online"
                 existing.last_heartbeat = time.time()
-                # Preserve paused and schedule on re-register (set from UI)
+                # Preserve paused, schedule, visibility, and accepted_types on
+                # re-register — these are all UI-set fields. CRKY-197: visibility
+                # was being reset because it wasn't in this preserve list.
                 logger.info(f"Node re-registered: {info.name} ({info.node_id})")
             else:
                 info.last_heartbeat = time.time()

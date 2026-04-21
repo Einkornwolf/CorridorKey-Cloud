@@ -272,6 +272,55 @@ volumes:
 					</div>
 				</div>
 			</div>
+
+			<!-- CRKY-193: distro-specific setup notes for users whose Docker install
+			     doesn't come with the NVIDIA container runtime pre-configured. -->
+			<details class="distro-notes">
+				<summary class="distro-summary mono">Getting "could not select device driver 'nvidia'" or similar?</summary>
+				<div class="distro-body">
+					<p class="distro-intro">
+						Your Docker install needs the NVIDIA Container Toolkit and the CDI runtime
+						configured. Below are the exact commands per distro. After running them,
+						restart the container with <code class="mono">docker compose up -d --force-recreate</code>.
+					</p>
+
+					<h4 class="distro-title mono">Ubuntu / Debian</h4>
+					<pre class="run-cmd mono">curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+  | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+  | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+sudo apt-get update
+sudo apt-get install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker</pre>
+
+					<h4 class="distro-title mono">Arch Linux / Manjaro</h4>
+					<pre class="run-cmd mono">sudo pacman -S nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker
+
+# If you still get "unresolvable CDI devices nvidia.com/gpu=all":
+sudo mkdir -p /etc/cdi
+sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+nvidia-ctk cdi list    # should show nvidia.com/gpu=all
+sudo systemctl restart docker</pre>
+
+					<h4 class="distro-title mono">Fedora / RHEL / CentOS</h4>
+					<pre class="run-cmd mono">curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
+  | sudo tee /etc/yum.repos.d/nvidia-container-toolkit.repo
+sudo dnf install -y nvidia-container-toolkit
+sudo nvidia-ctk runtime configure --runtime=docker
+sudo systemctl restart docker</pre>
+
+					<h4 class="distro-title mono">Verify it works</h4>
+					<pre class="run-cmd mono">docker run --rm --gpus all nvidia/cuda:12.6.0-base-ubuntu22.04 nvidia-smi</pre>
+					<p class="distro-note">
+						If that prints your GPU, the runtime is wired up and the CorridorKey node
+						will work. If it errors, the problem is your Docker/driver install, not the
+						node image.
+					</p>
+				</div>
+			</details>
 		{/if}
 	</div>
 
@@ -466,4 +515,20 @@ volumes:
 		padding: var(--sp-1) 0; transition: color 0.15s;
 	}
 	.revoked-toggle:hover { color: var(--text-secondary); }
+
+	.distro-notes {
+		margin-top: var(--sp-5); background: var(--surface-2); border: 1px solid var(--border);
+		border-radius: var(--radius-md); padding: var(--sp-3);
+	}
+	.distro-summary {
+		font-size: 11px; color: var(--text-secondary); cursor: pointer; font-weight: 600;
+		letter-spacing: 0.04em; padding: var(--sp-1) 0;
+	}
+	.distro-summary:hover { color: var(--text-primary); }
+	.distro-body { padding-top: var(--sp-2); display: flex; flex-direction: column; gap: var(--sp-2); }
+	.distro-intro, .distro-note { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+	.distro-title {
+		font-size: 10px; color: var(--text-tertiary); letter-spacing: 0.08em;
+		margin-top: var(--sp-2); text-transform: uppercase;
+	}
 </style>

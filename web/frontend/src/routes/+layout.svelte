@@ -282,19 +282,20 @@
 {#if isPublicPage}
   {@render children()}
 {:else if authChecked}
-  <div class="mobile-banner">
-    <span>CorridorKey is best experienced on desktop.</span>
-  </div>
-  {#if banner?.message}
-    <div
-      class="site-banner"
-      class:banner-warning={banner.level === "warning"}
-      class:banner-critical={banner.level === "critical"}
-    >
-      <span class="banner-text">{banner.message}</span>
+  <div class="layout-root">
+    <div class="mobile-banner">
+      <span>CorridorKey is best experienced on desktop.</span>
     </div>
-  {/if}
-  <div class="shell">
+    {#if banner?.message}
+      <div
+        class="site-banner"
+        class:banner-warning={banner.level === "warning"}
+        class:banner-critical={banner.level === "critical"}
+      >
+        <span class="banner-text">{banner.message}</span>
+      </div>
+    {/if}
+    <div class="shell">
     <nav class="sidebar">
       <div class="sidebar-top">
         <a href="/clips" class="logo">
@@ -575,6 +576,7 @@
       {/each}
       {@render children()}
     </main>
+    </div>
   </div>
 {/if}
 
@@ -598,10 +600,28 @@
     .mobile-banner {
       display: block;
     }
+    /* CRKY-192: hide the sidebar on mobile to stop the 280px-wide rail
+       from overflowing small viewports. The existing mobile banner
+       explains the app is desktop-only; proper mobile nav is tracked
+       in CRKY-202. */
+    .sidebar {
+      display: none;
+    }
+  }
+  .layout-root {
+    /* CRKY-199: wrap banner + shell so their heights compose properly.
+       Previously .shell was height: 100vh while the banner sat above it
+       as a sibling, pushing sidebar content (including the credit
+       indicator) below the fold. */
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
   }
   .shell {
     display: flex;
-    height: 100vh;
+    flex: 1;
+    min-height: 0;
     overflow: hidden;
   }
 
@@ -615,7 +635,7 @@
     justify-content: space-between;
     overflow: hidden;
     position: relative;
-    height: 100vh;
+    height: 100%;
   }
 
   .sidebar::before {

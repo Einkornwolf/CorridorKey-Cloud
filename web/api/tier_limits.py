@@ -124,6 +124,44 @@ def check_tier_limits(request: Request, frame_count: int = 0) -> None:
             )
 
 
+def get_user_concurrent_limit(user_id: str | None = None, request: Request | None = None) -> int:
+    """Return the user's tier cap on concurrent jobs, or 0 for unlimited.
+
+    Used by the auto-sharder to avoid creating more shards than the user can
+    actually submit — otherwise shards past the tier limit get rejected at
+    submit time and the user sees a silently-truncated result (CRKY-191).
+
+    Looks up the user from `request` if provided, otherwise resolves from
+    `user_id` via the user store. Returns 0 (meaning "no cap") when auth is
+    disabled, the user is a platform admin, or the lookup fails — callers
+    should treat 0 as "do not apply a tier-based cap".
+    """
+    if not AUTH_ENABLED:
+        return 0
+    user = None
+    if request is not None:
+        user = get_current_user(request)
+    elif user_id:
+        try:
+            from .users import get_user_store
+
+            u = get_user_store().get_user(user_id)
+            if u:
+                # UserContext-like shim: tier_limits only needs .tier and .is_admin
+                class _U:
+                    pass
+
+                user = _U()
+                user.tier = u.tier
+                user.is_admin = u.tier == "platform_admin"
+        except Exception:
+            return 0
+    if user is None or getattr(user, "is_admin", False):
+        return 0
+    limits = TIER_LIMITS.get(user.tier, TIER_LIMITS["pending"])
+    return int(limits.get("max_concurrent", 0))
+
+
 def check_video_limits(request: Request, video_info: dict) -> None:
     """Validate video resolution, framerate, and duration against tier limits.
 
