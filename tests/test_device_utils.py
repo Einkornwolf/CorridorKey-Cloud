@@ -181,45 +181,67 @@ class TestClearDeviceCache:
 
 
 class TestCheckGpuTorchCompat:
-    """Gate GPUs by the torch build's minimum compute capability (CRKY-188)."""
+    """Gate GPUs by the torch build's actual compute capability support (CRKY-188).
+
+    Tests the static-fallback path by patching _torch_arch_list to return
+    None (unavailable), then the dynamic path with a stubbed arch list.
+    """
 
     def _make(self, cc: str) -> GPUInfo:
         return GPUInfo(index=0, name="Test GPU", vram_total_gb=24.0, vram_free_gb=24.0, compute_capability=cc)
 
-    def test_pascal_rejected(self):
-        # GTX 1080 Ti is sm_61, torch 2.8.0 requires >= 7.0
+    # --- static-fallback path (torch arch list unavailable) ---
+
+    def test_pascal_rejected_via_static_floor(self, monkeypatch):
+        monkeypatch.setattr("device_utils._torch_arch_list", lambda: None)
         ok, reason = check_gpu_torch_compat(self._make("6.1"))
         assert ok is False
         assert "6.1" in reason
         assert "below the minimum" in reason
 
-    def test_maxwell_rejected(self):
-        # Quadro M4000 is sm_52, far below minimum
+    def test_maxwell_rejected_via_static_floor(self, monkeypatch):
+        monkeypatch.setattr("device_utils._torch_arch_list", lambda: None)
         ok, reason = check_gpu_torch_compat(self._make("5.2"))
         assert ok is False
         assert "5.2" in reason
 
-    def test_volta_accepted(self):
-        # Titan V is sm_70, exactly at the minimum
-        ok, reason = check_gpu_torch_compat(self._make("7.0"))
-        assert ok is True
-        assert reason == ""
-
-    def test_turing_accepted(self):
-        ok, _ = check_gpu_torch_compat(self._make("7.5"))
+    def test_volta_accepted_via_static_floor(self, monkeypatch):
+        monkeypatch.setattr("device_utils._torch_arch_list", lambda: None)
+        ok, _ = check_gpu_torch_compat(self._make("7.0"))
         assert ok is True
 
-    def test_ampere_accepted(self):
-        ok, _ = check_gpu_torch_compat(self._make("8.6"))
-        assert ok is True
+    # --- dynamic path (torch reports its actual arch list) ---
 
-    def test_blackwell_accepted(self):
-        # RTX 5090 is sm_120
+    def test_pascal_accepted_when_torch_has_sm_61(self, monkeypatch):
+        """If torch was built with Pascal kernels, Pascal should pass the gate."""
+        monkeypatch.setattr(
+            "device_utils._torch_arch_list",
+            lambda: [(6, 1), (7, 0), (7, 5), (8, 0), (8, 6)],
+        )
+        ok, reason = check_gpu_torch_compat(self._make("6.1"))
+        assert ok is True, f"expected Pascal accepted, got: {reason}"
+
+    def test_pascal_rejected_when_torch_lacks_sm_61(self, monkeypatch):
+        """Modern torch wheel without Pascal: 1080 Ti rejected with the actual supported list."""
+        monkeypatch.setattr(
+            "device_utils._torch_arch_list",
+            lambda: [(7, 0), (7, 5), (8, 0), (8, 6), (9, 0), (12, 0)],
+        )
+        ok, reason = check_gpu_torch_compat(self._make("6.1"))
+        assert ok is False
+        assert "sm_70" in reason  # supported list should be listed
+
+    def test_blackwell_accepted(self, monkeypatch):
+        monkeypatch.setattr(
+            "device_utils._torch_arch_list",
+            lambda: [(7, 0), (7, 5), (8, 0), (12, 0)],
+        )
         ok, _ = check_gpu_torch_compat(self._make("12.0"))
         assert ok is True
 
+    # --- non-NVIDIA / unparseable cases ---
+
     def test_empty_cc_not_gated(self):
-        # AMD GPUs have empty compute_capability; don't block them here
         ok, reason = check_gpu_torch_compat(self._make(""))
         assert ok is True
         assert reason == ""
@@ -228,7 +250,7 @@ class TestCheckGpuTorchCompat:
         ok, _ = check_gpu_torch_compat(self._make("gfx1030"))
         assert ok is True
 
-    def test_min_constant_matches_torch_2_8(self):
-        # The minimum should match what torch 2.8.0 cu128 supports.
-        # If this assert fails, update the pin deliberately — not by accident.
+    def test_min_constant_is_sensible(self):
+        # The fallback constant should match the most common torch wheel floor.
+        # Update deliberately if torch drops further.
         assert MIN_CUDA_COMPUTE_CAPABILITY == (7, 0)

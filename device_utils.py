@@ -127,10 +127,34 @@ class GPUInfo:
     compute_capability: str = ""
 
 
-# Minimum CUDA compute capability supported by the torch build we ship.
-# torch 2.8.0 cu128 wheels drop sm_60/sm_61 (Pascal) and below.
-# Supported archs: sm_70 sm_75 sm_80 sm_86 sm_90 sm_100 sm_120.
+# Fallback minimum CUDA compute capability when torch can't tell us what it
+# actually supports. torch 2.8.0 cu128 wheels typically carry sm_70+; older
+# Pascal/Maxwell archs depend on how the wheel was built. When available we
+# prefer torch.cuda.get_arch_list() over this constant (see _torch_arch_list).
 MIN_CUDA_COMPUTE_CAPABILITY = (7, 0)
+
+
+def _torch_arch_list() -> list[tuple[int, int]] | None:
+    """Return the compute capabilities this torch build actually supports.
+
+    Queries torch.cuda.get_arch_list() so the node can accept whatever torch
+    says it can run, rather than relying on a hardcoded floor that may be
+    wrong for Pascal-enabled wheels. Returns None on any failure.
+    """
+    try:
+        arches = torch.cuda.get_arch_list() or []
+    except Exception:
+        return None
+    out: list[tuple[int, int]] = []
+    for a in arches:
+        # Strings look like 'sm_61', 'sm_75', 'compute_80', etc.
+        digits = "".join(c for c in a if c.isdigit())
+        if len(digits) >= 2:
+            try:
+                out.append((int(digits[:-1]), int(digits[-1])))
+            except ValueError:
+                continue
+    return out or None
 
 
 def _parse_cc(cc: str) -> tuple[int, int] | None:
@@ -145,6 +169,11 @@ def _parse_cc(cc: str) -> tuple[int, int] | None:
 def check_gpu_torch_compat(gpu: GPUInfo) -> tuple[bool, str]:
     """Check whether a GPU meets the minimum compute capability for our torch build.
 
+    Prefers torch.cuda.get_arch_list() as the source of truth — some wheels
+    ship Pascal support (sm_61) and some don't, and a hardcoded floor would
+    falsely reject GPUs that actually work. Falls back to
+    MIN_CUDA_COMPUTE_CAPABILITY only when torch can't be queried.
+
     AMD GPUs (empty compute_capability) are assumed compatible and not gated
     here; they have their own compatibility handling in the ROCm path.
 
@@ -155,6 +184,23 @@ def check_gpu_torch_compat(gpu: GPUInfo) -> tuple[bool, str]:
     parsed = _parse_cc(gpu.compute_capability)
     if parsed is None:
         return True, ""  # can't parse, don't block
+
+    supported = _torch_arch_list()
+    if supported:
+        # Accept any CC >= min supported arch. This is what torch uses too —
+        # sm_61 can run kernels built for sm_60 but not sm_70.
+        min_supported = min(supported)
+        if parsed < min_supported:
+            sup_str = ", ".join(f"sm_{a}{b}" for a, b in sorted(supported))
+            return False, (
+                f"GPU {gpu.index} '{gpu.name}' is sm_{parsed[0]}{parsed[1]} "
+                f"(compute {gpu.compute_capability}); this torch build only "
+                f"supports [{sup_str}]. Jobs would fail with 'no kernel image "
+                f"is available for execution on the device'."
+            )
+        return True, ""
+
+    # Fallback: static minimum
     if parsed < MIN_CUDA_COMPUTE_CAPABILITY:
         min_str = f"{MIN_CUDA_COMPUTE_CAPABILITY[0]}.{MIN_CUDA_COMPUTE_CAPABILITY[1]}"
         return False, (
