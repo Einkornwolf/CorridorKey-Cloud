@@ -29,6 +29,7 @@
 	let healthCanvas: HTMLCanvasElement | undefined = $state();
 	let viewingMetrics = $state<string | null>(null);
 	let metricsData = $state<Awaited<ReturnType<typeof api.nodes.getMetrics>> | null>(null);
+	let scheduleTz = $state<{ timezone: string; abbreviation: string; server_time: string } | null>(null);
 
 	const ALL_JOB_TYPES = [
 		{ value: 'inference', label: 'Inference' },
@@ -41,6 +42,7 @@
 	onMount(() => {
 		refreshNodes();
 		_intervals.push(setInterval(refreshNodes, 5000));
+		api.system2.getScheduleTz().then(tz => scheduleTz = tz).catch(() => {});
 		if (isAdmin) {
 			api.system2.localGpus().then(g => localGpus = g).catch(() => {});
 			api.system2.localCpu().then(c => localCpu = c).catch(() => {});
@@ -380,7 +382,14 @@
 							<!-- Schedule editor -->
 							{#if editingSchedule === node.node_id}
 								<div class="editor-panel">
-									<span class="editor-title mono">SCHEDULE</span>
+									<span class="editor-title mono">
+										SCHEDULE
+										{#if scheduleTz}
+											<span class="editor-title-tz mono">
+												({scheduleTz.abbreviation || scheduleTz.timezone} · server now {scheduleTz.server_time})
+											</span>
+										{/if}
+									</span>
 									<label class="toggle-row"><input type="checkbox" bind:checked={scheduleEnabled} class="toggle" /> Enabled</label>
 									<div class="editor-row">
 										<input type="time" bind:value={scheduleStart} class="input-sm mono" />
@@ -713,6 +722,7 @@
 		display: flex; flex-direction: column; gap: var(--sp-2);
 	}
 	.editor-title { font-size: 9px; letter-spacing: 0.1em; color: var(--text-tertiary); font-weight: 600; }
+	.editor-title-tz { font-size: 9px; letter-spacing: 0.04em; color: var(--text-tertiary); font-weight: 400; text-transform: none; margin-left: 4px; }
 	.editor-row { display: flex; align-items: center; gap: var(--sp-2); font-size: 12px; color: var(--text-secondary); }
 	.editor-actions { display: flex; gap: var(--sp-1); }
 	.input-sm {

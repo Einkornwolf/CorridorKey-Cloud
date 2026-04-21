@@ -445,6 +445,8 @@ export const api = {
 			request<unknown>('POST', `/api/system/local-gpu?enabled=${enabled}`),
 		getClaimDelay: () => request<{ seconds: number }>('GET', '/api/system/claim-delay'),
 		setClaimDelay: (seconds: number) =>
-			request<unknown>('POST', `/api/system/claim-delay?seconds=${seconds}`)
+			request<unknown>('POST', `/api/system/claim-delay?seconds=${seconds}`),
+		getScheduleTz: () =>
+			request<{ timezone: string; abbreviation: string; server_time: string }>('GET', '/api/system/schedule-tz')
 	}
 };
