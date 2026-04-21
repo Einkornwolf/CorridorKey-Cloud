@@ -35,6 +35,15 @@ _hidden = (
     + collect_submodules("h11")
     + collect_submodules("sniffio")
     + collect_submodules("certifi")
+    # CRKY-190: diffusers lazy-imports submodules via _LazyModule; unless we
+    # eagerly collect them the first access (e.g.
+    # diffusers.models.autoencoders.autoencoder_kl_temporal_decoder used by
+    # GVM) raises "'NoneType' object is not iterable" because the lazy
+    # loader can't find the missing submodule.
+    + collect_submodules("diffusers")
+    + collect_submodules("transformers")
+    + collect_submodules("accelerate")
+    + collect_submodules("peft")
 )
 
 # Runtime metadata lookups: transformers/huggingface-hub/diffusers call
