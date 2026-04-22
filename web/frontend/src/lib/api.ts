@@ -463,7 +463,9 @@ export const api = {
 			request<unknown>('POST', `/api/system/local-gpu?enabled=${enabled}`),
 		getClaimDelay: () => request<{ seconds: number }>('GET', '/api/system/claim-delay'),
 		setClaimDelay: (seconds: number) =>
-			request<unknown>('POST', `/api/system/claim-delay?seconds=${seconds}`)
+			request<unknown>('POST', `/api/system/claim-delay?seconds=${seconds}`),
+		getScheduleTz: () =>
+			request<{ timezone: string; abbreviation: string; server_time: string }>('GET', '/api/system/schedule-tz')
 	},
 	presets: {
 		list: () => request<PresetListResponse>('GET', '/api/presets'),
@@ -473,8 +475,5 @@ export const api = {
 		update: (id: string, data: { name?: string; description?: string; params?: InferenceParams; output_config?: OutputConfig; is_default?: boolean }) =>
 			request<Preset>('PATCH', `/api/presets/${encodeURIComponent(id)}`, data),
 		delete: (id: string) => request<void>('DELETE', `/api/presets/${encodeURIComponent(id)}`, undefined, true)
-			request<unknown>('POST', `/api/system/claim-delay?seconds=${seconds}`),
-		getScheduleTz: () =>
-			request<{ timezone: string; abbreviation: string; server_time: string }>('GET', '/api/system/schedule-tz')
 	}
 };
